@@ -85,11 +85,12 @@ export interface APIContext<ReqT = BaseReq, ResT = BaseRes>
 type BaseEvent<T extends Model> = {
   teamId: string;
   actorId: string;
-  ip: string;
+  ip: string | null;
+  authType?: AuthenticationType | null;
   changes?: {
     attributes: Partial<InferAttributes<T>>;
     previous: Partial<InferAttributes<T>>;
-  };
+  } | null;
 };
 
 export type ApiKeyEvent = BaseEvent<ApiKey> & {
@@ -379,6 +380,15 @@ export type CommentUpdateEvent = BaseEvent<Comment> & {
   };
 };
 
+export type CommentReactionEvent = BaseEvent<Comment> & {
+  name: "comments.add_reaction" | "comments.remove_reaction";
+  modelId: string;
+  documentId: string;
+  data: {
+    emoji: string;
+  };
+};
+
 export type CommentEvent =
   | (BaseEvent<Comment> & {
       name: "comments.create";
@@ -393,7 +403,8 @@ export type CommentEvent =
       documentId: string;
       actorId: string;
       collectionId: string;
-    });
+    })
+  | CommentReactionEvent;
 
 export type StarEvent = BaseEvent<Star> & {
   name: "stars.create" | "stars.update" | "stars.delete";

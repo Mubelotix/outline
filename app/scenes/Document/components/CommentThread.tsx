@@ -36,12 +36,16 @@ type Props = {
   focused: boolean;
   /** Whether the thread is displayed in a recessed/backgrounded state */
   recessed: boolean;
+  /** Enable scroll for the comments container */
+  enableScroll: () => void;
+  /** Disable scroll for the comments container */
+  disableScroll: () => void;
 };
 
 function useTypingIndicator({
   document,
   comment,
-}: Omit<Props, "focused" | "recessed">): [undefined, () => void] {
+}: Pick<Props, "document" | "comment">): [undefined, () => void] {
   const socket = React.useContext(WebsocketContext);
 
   const setIsTyping = React.useMemo(
@@ -63,6 +67,8 @@ function CommentThread({
   document,
   recessed,
   focused,
+  enableScroll,
+  disableScroll,
 }: Props) {
   const [focusedOnMount] = React.useState(focused);
   const { editor } = useDocumentContext();
@@ -94,7 +100,8 @@ function CommentThread({
   useOnClickOutside(topRef, (event) => {
     if (
       focused &&
-      !(event.target as HTMLElement).classList.contains("comment")
+      !(event.target as HTMLElement).classList.contains("comment") &&
+      event.defaultPrevented === false
     ) {
       history.replace({
         search: location.search,
@@ -202,6 +209,8 @@ function CommentThread({
             lastOfAuthor={lastOfAuthor}
             previousCommentCreatedAt={commentsInThread[index - 1]?.createdAt}
             dir={document.dir}
+            enableScroll={enableScroll}
+            disableScroll={disableScroll}
           />
         );
       })}

@@ -92,19 +92,13 @@ router.post(
 
     await collection.save({ transaction });
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.create",
-        collectionId: collection.id,
-        data: {
-          name,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.create",
+      collectionId: collection.id,
+      data: {
+        name,
       },
-      {
-        transaction,
-      }
-    );
+    });
     // we must reload the collection to get memberships for policy presenter
     const reloaded = await Collection.scope({
       method: ["withMembership", user.id],
@@ -198,19 +192,13 @@ router.post(
       }
     );
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "fileOperations.create",
-        modelId: fileOperation.id,
-        data: {
-          type: FileOperationType.Import,
-        },
+    await Event.createFromContext(ctx, {
+      name: "fileOperations.create",
+      modelId: fileOperation.id,
+      data: {
+        type: FileOperationType.Import,
       },
-      {
-        transaction,
-      }
-    );
+    });
 
     ctx.body = {
       success: true,
@@ -253,19 +241,15 @@ router.post(
     membership.permission = permission;
     await membership.save({ transaction });
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.add_group",
-        collectionId: collection.id,
-        modelId: groupId,
-        data: {
-          name: group.name,
-          membershipId: membership.id,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.add_group",
+      collectionId: collection.id,
+      modelId: groupId,
+      data: {
+        name: group.name,
+        membershipId: membership.id,
       },
-      { transaction }
-    );
+    });
 
     const groupMemberships = [presentGroupMembership(membership)];
 
@@ -318,19 +302,15 @@ router.post(
       },
       transaction,
     });
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.remove_group",
-        collectionId: collection.id,
-        modelId: groupId,
-        data: {
-          name: group.name,
-          membershipId: membership.id,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.remove_group",
+      collectionId: collection.id,
+      modelId: groupId,
+      data: {
+        name: group.name,
+        membershipId: membership.id,
       },
-      { transaction }
-    );
+    });
 
     ctx.body = {
       success: true,
@@ -445,22 +425,16 @@ router.post(
       await membership.save({ transaction });
     }
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.add_user",
-        userId,
-        modelId: membership.id,
-        collectionId: collection.id,
-        data: {
-          isNew,
-          permission: membership.permission,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.add_user",
+      userId,
+      modelId: membership.id,
+      collectionId: collection.id,
+      data: {
+        isNew,
+        permission: membership.permission,
       },
-      {
-        transaction,
-      }
-    );
+    });
 
     ctx.body = {
       data: {
@@ -500,19 +474,15 @@ router.post(
 
     await collection.$remove("user", user, { transaction });
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.remove_user",
-        userId,
-        modelId: membership.id,
-        collectionId: collection.id,
-        data: {
-          name: user.name,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.remove_user",
+      userId,
+      modelId: membership.id,
+      collectionId: collection.id,
+      data: {
+        name: user.name,
       },
-      { transaction }
-    );
+    });
 
     ctx.body = {
       success: true,
@@ -740,35 +710,23 @@ router.post(
     }
 
     await collection.save({ transaction });
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.update",
-        collectionId: collection.id,
-        data: {
-          name,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.update",
+      collectionId: collection.id,
+      data: {
+        name,
       },
-      {
-        transaction,
-      }
-    );
+    });
 
     if (privacyChanged || sharingChanged) {
-      await Event.createFromContext(
-        ctx,
-        {
-          name: "collections.permission_changed",
-          collectionId: collection.id,
-          data: {
-            privacyChanged,
-            sharingChanged,
-          },
+      await Event.createFromContext(ctx, {
+        name: "collections.permission_changed",
+        collectionId: collection.id,
+        data: {
+          privacyChanged,
+          sharingChanged,
         },
-        {
-          transaction,
-        }
-      );
+      });
     }
 
     // must reload to update collection membership for correct policy calculation
@@ -972,18 +930,14 @@ router.post(
       }
     );
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.archive",
-        collectionId: collection.id,
-        data: {
-          name: collection.name,
-          archivedAt: collection.archivedAt,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.archive",
+      collectionId: collection.id,
+      data: {
+        name: collection.name,
+        archivedAt: collection.archivedAt,
       },
-      { transaction }
-    );
+    });
 
     ctx.body = {
       data: await presentCollection(ctx, collection),
@@ -1032,18 +986,14 @@ router.post(
     collection.archivedById = null;
     await collection.save({ transaction });
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.restore",
-        collectionId: collection.id,
-        data: {
-          name: collection.name,
-          archivedAt: collectionArchivedAt,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.restore",
+      collectionId: collection.id,
+      data: {
+        name: collection.name,
+        archivedAt: collectionArchivedAt,
       },
-      { transaction }
-    );
+    });
 
     ctx.body = {
       data: await presentCollection(ctx, collection!),
@@ -1078,19 +1028,13 @@ router.post(
         transaction,
       }
     );
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.move",
-        collectionId: collection.id,
-        data: {
-          index,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.move",
+      collectionId: collection.id,
+      data: {
+        index,
       },
-      {
-        transaction,
-      }
-    );
+    });
 
     ctx.body = {
       success: true,
