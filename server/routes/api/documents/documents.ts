@@ -819,7 +819,7 @@ router.post(
     const srcCollection = sourceCollectionId
       ? await Collection.scope({
           method: ["withMembership", user.id],
-        }).findByPk(sourceCollectionId)
+        }).findByPk(sourceCollectionId, { paranoid: false })
       : undefined;
 
     const destCollection = destCollectionId
@@ -828,13 +828,15 @@ router.post(
         }).findByPk(destCollectionId)
       : undefined;
 
-    if (!destCollection?.isActive) {
+    // In case of workspace templates, both source and destination collections are undefined.
+    if (!document.isWorkspaceTemplate && !destCollection?.isActive) {
       throw ValidationError(
         "Unable to restore, the collection may have been deleted or archived"
       );
     }
 
-    if (sourceCollectionId !== destCollectionId) {
+    // Skip this for workspace templates and drafts of a deleted collection as they won't have sourceCollectionId.
+    if (sourceCollectionId && sourceCollectionId !== destCollectionId) {
       authorize(user, "updateDocument", srcCollection);
       await srcCollection?.removeDocumentInStructure(document, {
         save: true,
@@ -842,7 +844,19 @@ router.post(
       });
     }
 
-    if (document.deletedAt) {
+    if (document.deletedAt && document.isWorkspaceTemplate) {
+      authorize(user, "restore", document);
+
+      await document.restore({ transaction });
+      await Event.createFromContext(ctx, {
+        name: "documents.restore",
+        documentId: document.id,
+        collectionId: document.collectionId,
+        data: {
+          title: document.title,
+        },
+      });
+    } else if (document.deletedAt) {
       authorize(user, "restore", document);
       authorize(user, "updateDocument", destCollection);
 
@@ -1272,10 +1286,9 @@ router.post(
       document,
       title,
       publish,
-      transaction,
       recursive,
       parentDocumentId,
-      ip: ctx.request.ip,
+      ctx,
     });
 
     ctx.body = {
@@ -1534,7 +1547,6 @@ router.post(
       collectionId,
       parentDocumentId,
       publish,
-      ip: ctx.request.ip,
     });
     const response: DocumentImportTaskResponse = await job.finished();
     if ("error" in response) {
@@ -1629,12 +1641,7 @@ router.post(
 
     const document = await documentCreator({
       title,
-      text: await TextHelper.replaceImagesWithAttachments(
-        text,
-        user,
-        ctx.request.ip,
-        transaction
-      ),
+      text: await TextHelper.replaceImagesWithAttachments(ctx, text, user),
       icon,
       color,
       createdAt,
@@ -1646,8 +1653,7 @@ router.post(
       fullWidth,
       user,
       editorVersion,
-      ip: ctx.request.ip,
-      transaction,
+      ctx,
     });
 
     if (collection) {

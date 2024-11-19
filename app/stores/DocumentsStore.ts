@@ -63,6 +63,7 @@ export default class DocumentsStore extends Store<Document> {
     ".md",
     ".doc",
     ".docx",
+    "text/csv",
     "text/markdown",
     "text/plain",
     "text/html",
@@ -366,6 +367,10 @@ export default class DocumentsStore extends Store<Document> {
   @action
   fetchTemplates = async (options?: PaginationParams): Promise<Document[]> =>
     this.fetchNamedPage("list", { ...options, template: true });
+
+  @action
+  fetchAllTemplates = async (options?: PaginationParams): Promise<Document[]> =>
+    this.fetchAll({ ...options, template: true });
 
   @action
   fetchAlphabetical = async (options?: PaginationParams): Promise<Document[]> =>
