@@ -701,7 +701,10 @@ img.ProseMirror-separator {
 }
 
 .heading-name:first-child,
-.heading-name:first-child + .ProseMirror-yjs-cursor {
+// Edge case where multiplayer cursor is between start of cell and heading
+.heading-name:first-child + .ProseMirror-yjs-cursor,
+// Edge case where table grips are between start of cell and heading
+.heading-name:first-child + [role=button] + [role=button] {
   & + h1,
   & + h2,
   & + h3,
@@ -1065,11 +1068,11 @@ a:hover {
 
 ul,
 ol {
-  margin: 0 0.1em 0 -26px;
+  margin: 0 0.1em 0 ${props.staticHTML ? "0" : "-26px"};
   padding: 0 0 0 48px;
 
   &:dir(rtl) {
-    margin: 0 -26px 0 0.1em;
+    margin: 0 ${props.staticHTML ? "0" : "-26px"} 0 0.1em;
     padding: 0 48px 0 0;
   }
 }
