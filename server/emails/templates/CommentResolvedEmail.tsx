@@ -24,20 +24,17 @@ type InputProps = EmailProps & {
 
 type BeforeSend = {
   document: Document;
-  collection: Collection | null;
+  collection: Collection;
   body: string | undefined;
-  isFirstComment: boolean;
-  isReply: boolean;
   unsubscribeUrl: string;
 };
 
 type Props = InputProps & BeforeSend;
 
 /**
- * Email sent to a user when a new comment is created in a document they are
- * subscribed to.
+ * Email sent to a user when a comment they are involved in was resolved.
  */
-export default class CommentCreatedEmail extends BaseEmail<
+export default class CommentResolvedEmail extends BaseEmail<
   InputProps,
   BeforeSend
 > {
@@ -52,33 +49,27 @@ export default class CommentCreatedEmail extends BaseEmail<
       return false;
     }
 
-    const [comment, team, collection] = await Promise.all([
+    const collection = await document.$get("collection");
+    if (!collection) {
+      return false;
+    }
+
+    const [comment, team] = await Promise.all([
       Comment.findByPk(commentId),
       document.$get("team"),
-      document.$get("collection"),
     ]);
     if (!comment || !team) {
       return false;
     }
 
-    const firstComment = await Comment.findOne({
-      attributes: ["id"],
-      where: { documentId },
-      order: [["createdAt", "ASC"]],
-    });
-
     const body = await this.htmlForData(
       team,
       ProsemirrorHelper.toProsemirror(comment.data)
     );
-    const isReply = !!comment.parentCommentId;
-    const isFirstComment = firstComment?.id === commentId;
 
     return {
       document,
       collection,
-      isReply,
-      isFirstComment,
       body,
       unsubscribeUrl: this.unsubscribeUrl(props),
     };
@@ -87,22 +78,8 @@ export default class CommentCreatedEmail extends BaseEmail<
   protected unsubscribeUrl({ userId }: InputProps) {
     return NotificationSettingsHelper.unsubscribeUrl(
       userId,
-      NotificationEventType.CreateComment
+      NotificationEventType.ResolveComment
     );
-  }
-
-  protected subject({ isFirstComment, document }: Props) {
-    return `${isFirstComment ? "" : "Re: "}New comment on “${document.title}”`;
-  }
-
-  protected preview({ isReply, actorName }: Props): string {
-    return isReply
-      ? `${actorName} replied in a thread`
-      : `${actorName} commented on the document`;
-  }
-
-  protected fromName({ actorName }: Props): string {
-    return actorName;
   }
 
   protected replyTo({ notification }: Props) {
@@ -114,29 +91,36 @@ export default class CommentCreatedEmail extends BaseEmail<
     return;
   }
 
+  protected subject({ document }: Props) {
+    return `Resolved a comment thread in “${document.title}”`;
+  }
+
+  protected preview({ actorName }: Props): string {
+    return `${actorName} resolved a comment thread`;
+  }
+
+  protected fromName({ actorName }: Props): string {
+    return actorName;
+  }
+
   protected renderAsText({
     actorName,
     teamUrl,
-    isReply,
     document,
     commentId,
     collection,
   }: Props): string {
-    return `
-${actorName} ${isReply ? "replied to a thread in" : "commented on"} "${
-      document.title
-    }"${collection?.name ? `in the ${collection.name} collection` : ""}.
-
-Open Thread: ${teamUrl}${document.url}?commentId=${commentId}
-`;
+    const t1 = `${actorName} resolved a comment thread on "${document.title}"`;
+    const t2 = collection.name ? ` in the ${collection.name} collection` : "";
+    const t3 = `Open Thread: ${teamUrl}${document.url}?commentId=${commentId}`;
+    return `${t1}${t2}.\n\n${t3}`;
   }
 
   protected render(props: Props) {
     const {
       document,
-      actorName,
-      isReply,
       collection,
+      actorName,
       teamUrl,
       commentId,
       unsubscribeUrl,
@@ -154,9 +138,9 @@ Open Thread: ${teamUrl}${document.url}?commentId=${commentId}
         <Body>
           <Heading>{document.title}</Heading>
           <p>
-            {actorName} {isReply ? "replied to a thread in" : "commented on"}{" "}
+            {actorName} resolved a comment on{" "}
             <a href={threadLink}>{document.title}</a>{" "}
-            {collection?.name ? `in the ${collection.name} collection` : ""}.
+            {collection.name ? `in the ${collection.name} collection` : ""}.
           </p>
           {body && (
             <>
