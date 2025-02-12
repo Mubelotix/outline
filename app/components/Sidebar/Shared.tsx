@@ -3,6 +3,7 @@ import { SidebarIcon } from "outline-icons";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
+import { hover } from "@shared/styles";
 import { NavigationNode } from "@shared/types";
 import { metaDisplay } from "@shared/utils/keyboard";
 import Flex from "~/components/Flex";
@@ -11,9 +12,9 @@ import SearchPopover from "~/components/SearchPopover";
 import Tooltip from "~/components/Tooltip";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import useStores from "~/hooks/useStores";
-import { hover } from "~/styles";
 import history from "~/utils/history";
 import { homePath, sharedDocumentPath } from "~/utils/routeHelpers";
+import { AvatarSize } from "../Avatar";
 import { useTeamContext } from "../TeamContext";
 import TeamLogo from "../TeamLogo";
 import Sidebar from "./Sidebar";
@@ -40,7 +41,9 @@ function SharedSidebar({ rootNode, shareId }: Props) {
       {teamAvailable && (
         <SidebarButton
           title={team.name}
-          image={<TeamLogo model={team} size={32} alt={t("Logo")} />}
+          image={
+            <TeamLogo model={team} size={AvatarSize.XLarge} alt={t("Logo")} />
+          }
           onClick={() =>
             history.push(
               user ? homePath() : sharedDocumentPath(shareId, rootNode.url)
@@ -67,6 +70,7 @@ function SharedSidebar({ rootNode, shareId }: Props) {
             depth={0}
             shareId={shareId}
             node={rootNode}
+            prefetchDocument={documents.prefetchDocument}
             activeDocumentId={ui.activeDocumentId}
             activeDocument={documents.active}
           />

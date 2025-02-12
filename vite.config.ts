@@ -2,15 +2,18 @@ import fs from "fs";
 import path from "path";
 import react from "@vitejs/plugin-react";
 import browserslistToEsbuild from "browserslist-to-esbuild";
-import { webpackStats } from "rollup-plugin-webpack-stats";
+import webpackStats from "rollup-plugin-webpack-stats";
 import { CommonServerOptions, defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 import environment from "./server/utils/environment";
 
 let httpsConfig: CommonServerOptions["https"] | undefined;
+let host: string | undefined;
 
 if (environment.NODE_ENV === "development") {
+  host = host = new URL(environment.URL!).hostname;
+
   try {
     httpsConfig = {
       key: fs.readFileSync("./server/config/certs/private.key"),
@@ -31,6 +34,8 @@ export default () =>
       port: 3001,
       host: true,
       https: httpsConfig,
+      allowedHosts: host ? [host] : undefined,
+      cors: true,
       fs:
         environment.NODE_ENV === "development"
           ? {

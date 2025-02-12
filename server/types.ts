@@ -7,7 +7,6 @@ import {
   NavigationNode,
   Client,
   CollectionPermission,
-  DocumentPermission,
   JSONValue,
   UnfurlResourceType,
   ProsemirrorData,
@@ -117,6 +116,10 @@ export type AttachmentEvent = BaseEvent<Attachment> &
           name: string;
           source?: "import";
         };
+      }
+    | {
+        name: "attachments.update";
+        modelId: string;
       }
     | {
         name: "attachments.delete";
@@ -266,7 +269,6 @@ export type CollectionUserEvent = BaseEvent<UserMembership> & {
   collectionId: string;
   data: {
     isNew?: boolean;
-    permission?: CollectionPermission;
   };
 };
 
@@ -274,7 +276,7 @@ export type CollectionGroupEvent = BaseEvent<GroupMembership> & {
   name: "collections.add_group" | "collections.remove_group";
   collectionId: string;
   modelId: string;
-  data: { name: string; membershipId: string };
+  data: { membershipId: string };
 };
 
 export type DocumentUserEvent = BaseEvent<UserMembership> & {
@@ -283,9 +285,7 @@ export type DocumentUserEvent = BaseEvent<UserMembership> & {
   modelId: string;
   documentId: string;
   data: {
-    title: string;
     isNew?: boolean;
-    permission?: DocumentPermission;
   };
 };
 
@@ -294,9 +294,7 @@ export type DocumentGroupEvent = BaseEvent<GroupMembership> & {
   documentId: string;
   modelId: string;
   data: {
-    name: string;
     isNew?: boolean;
-    permission?: DocumentPermission;
     membershipId: string;
   };
 };

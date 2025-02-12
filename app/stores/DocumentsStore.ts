@@ -816,16 +816,19 @@ export default class DocumentsStore extends Store<Document> {
       event: "documents.update",
     });
 
-  unsubscribe = (userId: string, document: Document) => {
-    const subscription = this.rootStore.subscriptions.orderedData.find(
-      (s) => s.documentId === document.id && s.userId === userId
+  unsubscribe = (document: Document) => {
+    const subscription = this.rootStore.subscriptions.getByDocumentId(
+      document.id
     );
 
     return subscription?.delete();
   };
 
   getByUrl = (url = ""): Document | undefined =>
-    find(this.orderedData, (doc) => url.endsWith(doc.urlId));
+    find(
+      this.orderedData,
+      (doc) => url.endsWith(doc.urlId) || url.endsWith(doc.id)
+    );
 
   getCollectionForDocument(document: Document) {
     return document.collectionId

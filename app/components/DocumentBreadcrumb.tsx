@@ -3,10 +3,10 @@ import { ArchiveIcon, GoToIcon, ShapesIcon, TrashIcon } from "outline-icons";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
+import Icon from "@shared/components/Icon";
 import type { NavigationNode } from "@shared/types";
 import Document from "~/models/Document";
 import Breadcrumb from "~/components/Breadcrumb";
-import Icon from "~/components/Icon";
 import CollectionIcon from "~/components/Icons/CollectionIcon";
 import { useLocationSidebarContext } from "~/hooks/useLocationSidebarContext";
 import usePolicy from "~/hooks/usePolicy";
@@ -105,14 +105,15 @@ function DocumentBreadcrumb(
     }
 
     path.slice(0, -1).forEach((node: NavigationNode) => {
+      const title = node.title || t("Untitled");
       output.push({
         type: "route",
         title: node.icon ? (
           <>
-            <StyledIcon value={node.icon} color={node.color} /> {node.title}
+            <StyledIcon value={node.icon} color={node.color} /> {title}
           </>
         ) : (
-          node.title
+          title
         ),
         to: {
           pathname: node.url,
@@ -121,7 +122,7 @@ function DocumentBreadcrumb(
       });
     });
     return output;
-  }, [path, category, sidebarContext, collectionNode]);
+  }, [t, path, category, sidebarContext, collectionNode]);
 
   if (!collections.isLoaded) {
     return null;
@@ -134,7 +135,7 @@ function DocumentBreadcrumb(
         {path.slice(0, -1).map((node: NavigationNode) => (
           <React.Fragment key={node.id}>
             <SmallSlash />
-            {node.title}
+            {node.title || t("Untitled")}
           </React.Fragment>
         ))}
       </>

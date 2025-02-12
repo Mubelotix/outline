@@ -13,16 +13,15 @@ import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import styled, { css } from "styled-components";
 import EventBoundary from "@shared/components/EventBoundary";
-import { s } from "@shared/styles";
+import { s, hover } from "@shared/styles";
 import Document from "~/models/Document";
 import Event from "~/models/Event";
-import { Avatar } from "~/components/Avatar";
+import { Avatar, AvatarSize } from "~/components/Avatar";
 import Item, { Actions, Props as ItemProps } from "~/components/List/Item";
 import Time from "~/components/Time";
 import { useLocationSidebarContext } from "~/hooks/useLocationSidebarContext";
 import useStores from "~/hooks/useStores";
 import RevisionMenu from "~/menus/RevisionMenu";
-import { hover } from "~/styles";
 import Logger from "~/utils/Logger";
 import { documentHistoryPath } from "~/utils/routeHelpers";
 
@@ -154,7 +153,7 @@ const EventListItem = ({ event, latest, document, ...rest }: Props) => {
           onClick={handleTimeClick}
         />
       }
-      image={<Avatar model={event.actor} size={32} />}
+      image={<Avatar model={event.actor} size={AvatarSize.Large} />}
       subtitle={
         <Subtitle>
           {icon}

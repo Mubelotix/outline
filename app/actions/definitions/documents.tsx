@@ -32,6 +32,7 @@ import {
 } from "outline-icons";
 import * as React from "react";
 import { toast } from "sonner";
+import Icon from "@shared/components/Icon";
 import {
   ExportContentType,
   TeamPreference,
@@ -46,7 +47,6 @@ import DocumentPublish from "~/scenes/DocumentPublish";
 import DeleteDocumentsInTrash from "~/scenes/Trash/components/DeleteDocumentsInTrash";
 import ConfirmationDialog from "~/components/ConfirmationDialog";
 import DocumentCopy from "~/components/DocumentCopy";
-import Icon from "~/components/Icon";
 import MarkdownIcon from "~/components/Icons/MarkdownIcon";
 import SharePopover from "~/components/Sharing/Document";
 import { getHeaderExpandedKey } from "~/components/Sidebar/components/Header";
@@ -358,7 +358,7 @@ export const unsubscribeDocument = createAction({
 
     const document = stores.documents.get(activeDocumentId);
 
-    await document?.unsubscribe(currentUserId);
+    await document?.unsubscribe();
 
     toast.success(t("Unsubscribed from document notifications"));
   },
@@ -1179,6 +1179,7 @@ export const rootDocumentActions = [
   openDocument,
   archiveDocument,
   createDocument,
+  createNestedDocument,
   createTemplateFromDocument,
   deleteDocument,
   importDocument,
