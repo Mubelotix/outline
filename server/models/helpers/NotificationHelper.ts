@@ -1,11 +1,6 @@
 import uniq from "lodash/uniq";
-import uniqBy from "lodash/uniqBy";
 import { Op } from "sequelize";
-import {
-  NotificationEventType,
-  MentionType,
-  SubscriptionType,
-} from "@shared/types";
+import { NotificationEventType, MentionType } from "@shared/types";
 import Logger from "@server/logging/Logger";
 import {
   User,
@@ -15,7 +10,7 @@ import {
   Comment,
   View,
 } from "@server/models";
-import { canUserAccessDocument } from "@server/utils/permissions";
+import { can } from "@server/policies";
 import { ProsemirrorHelper } from "./ProsemirrorHelper";
 
 export default class NotificationHelper {
@@ -61,12 +56,18 @@ export default class NotificationHelper {
     comment: Comment,
     actorId: string
   ): Promise<User[]> => {
-    let recipients: User[];
+    let recipients = await this.getDocumentNotificationRecipients(
+      document,
+      NotificationEventType.UpdateDocument,
+      actorId,
+      !comment.parentCommentId
+    );
 
-    // If this is a reply to another comment, we want to notify all users
-    // that are involved in the thread of this comment (i.e. the original
-    // comment and all replies to it).
-    if (comment.parentCommentId) {
+    recipients = recipients.filter((recipient) =>
+      recipient.subscribedToEventType(NotificationEventType.CreateComment)
+    );
+
+    if (recipients.length > 0 && comment.parentCommentId) {
       const contextComments = await Comment.findAll({
         attributes: ["createdById", "data"],
         where: {
@@ -90,37 +91,13 @@ export default class NotificationHelper {
       const userIdsInThread = uniq([
         ...createdUserIdsInThread,
         ...mentionedUserIdsInThread,
-      ]).filter((userId) => userId !== actorId);
-
-      recipients = await User.findAll({
-        where: {
-          id: {
-            [Op.in]: userIdsInThread,
-          },
-          teamId: document.teamId,
-        },
-      });
-
-      recipients = recipients.filter((recipient) =>
-        recipient.subscribedToEventType(NotificationEventType.CreateComment)
-      );
-    } else {
-      recipients = await this.getDocumentNotificationRecipients({
-        document,
-        notificationType: NotificationEventType.CreateComment,
-        actorId,
-        // We will check below, this just prevents duplicate queries
-        disableAccessCheck: true,
-      });
+      ]);
+      recipients = recipients.filter((r) => userIdsInThread.includes(r.id));
     }
 
     const filtered: User[] = [];
 
     for (const recipient of recipients) {
-      if (recipient.isSuspended) {
-        continue;
-      }
-
       // If this recipient has viewed the document since the comment was made
       // then we can avoid sending them a useless notification, yay.
       const view = await View.findOne({
@@ -138,13 +115,7 @@ export default class NotificationHelper {
           "processor",
           `suppressing notification to ${recipient.id} because doc viewed`
         );
-        continue;
-      }
-
-      // Check the recipient has access to the collection this document is in. Just
-      // because they are subscribed doesn't mean they still have access to read
-      // the document.
-      if (await canUserAccessDocument(recipient, document.id)) {
+      } else {
         filtered.push(recipient);
       }
     }
@@ -156,79 +127,68 @@ export default class NotificationHelper {
    * Get the recipients of a notification for a document event.
    *
    * @param document The document to get recipients for.
-   * @param notificationType The notification type for which to find the recipients.
+   * @param eventType The event name.
    * @param actorId The id of the user that performed the action.
-   * @param disableAccessCheck Whether to disable the access check for the document.
+   * @param onlySubscribers Whether to only return recipients that are actively
+   * subscribed to the document.
    * @returns A list of recipients
    */
-  public static getDocumentNotificationRecipients = async ({
-    document,
-    notificationType,
-    actorId,
-    disableAccessCheck = false,
-  }: {
-    document: Document;
-    notificationType: NotificationEventType;
-    actorId: string;
-    disableAccessCheck?: boolean;
-  }): Promise<User[]> => {
-    let recipients: User[];
-
-    if (notificationType === NotificationEventType.PublishDocument) {
-      recipients = await User.findAll({
-        where: {
-          id: {
-            [Op.ne]: actorId,
-          },
-          teamId: document.teamId,
-          notificationSettings: {
-            [notificationType]: true,
-          },
+  public static getDocumentNotificationRecipients = async (
+    document: Document,
+    eventType: NotificationEventType,
+    actorId: string,
+    onlySubscribers: boolean
+  ): Promise<User[]> => {
+    // First find all the users that have notifications enabled for this event
+    // type at all and aren't the one that performed the action.
+    let recipients = await User.findAll({
+      where: {
+        id: {
+          [Op.ne]: actorId,
         },
-      });
-    } else {
+        teamId: document.teamId,
+      },
+    });
+
+    recipients = recipients.filter((recipient) =>
+      recipient.subscribedToEventType(eventType)
+    );
+
+    // Filter further to only those that have a subscription to the document…
+    if (onlySubscribers) {
       const subscriptions = await Subscription.findAll({
+        attributes: ["userId"],
         where: {
-          userId: {
-            [Op.ne]: actorId,
-          },
-          event: SubscriptionType.Document,
-          [Op.or]: [
-            { collectionId: document.collectionId },
-            { documentId: document.id },
-          ],
+          userId: recipients.map((recipient) => recipient.id),
+          documentId: document.id,
+          event: eventType,
         },
-        include: [
-          {
-            association: "user",
-            required: true,
-          },
-        ],
       });
 
-      recipients = uniqBy(
-        subscriptions.map((s) => s.user),
-        (user) => user.id
+      const subscribedUserIds = subscriptions.map(
+        (subscription) => subscription.userId
+      );
+
+      recipients = recipients.filter((recipient) =>
+        subscribedUserIds.includes(recipient.id)
       );
     }
 
     const filtered = [];
 
     for (const recipient of recipients) {
-      if (
-        recipient.isSuspended ||
-        !recipient.subscribedToEventType(notificationType)
-      ) {
+      if (!recipient.email || recipient.isSuspended) {
         continue;
       }
 
       // Check the recipient has access to the collection this document is in. Just
       // because they are subscribed doesn't mean they still have access to read
       // the document.
-      if (
-        disableAccessCheck ||
-        (await canUserAccessDocument(recipient, document.id))
-      ) {
+      const doc = await Document.findByPk(document.id, {
+        userId: recipient.id,
+      });
+
+      if (can(recipient, "read", doc)) {
         filtered.push(recipient);
       }
     }

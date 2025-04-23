@@ -23,6 +23,7 @@ type Props = {
   options: TFilterOption[];
   selectedKeys: (string | null | undefined)[];
   defaultLabel?: string;
+  selectedPrefix?: string;
   className?: string;
   onSelect: (key: string | null | undefined) => void;
   showFilter?: boolean;
@@ -34,6 +35,7 @@ const FilterOptions = ({
   options,
   selectedKeys = [],
   defaultLabel = "Filter options",
+  selectedPrefix = "",
   className,
   onSelect,
   showFilter,
@@ -52,7 +54,9 @@ const FilterOptions = ({
   const [query, setQuery] = React.useState("");
 
   const selectedLabel = selectedItems.length
-    ? selectedItems.map((selected) => selected.label).join(", ")
+    ? selectedItems
+        .map((selected) => `${selectedPrefix} ${selected.label}`)
+        .join(", ")
     : "";
 
   const renderItem = React.useCallback(
@@ -66,7 +70,7 @@ const FilterOptions = ({
         selected={selectedKeys.includes(option.key)}
         {...menu}
       >
-        {option.icon}
+        {option.icon && <Icon>{option.icon}</Icon>}
         {option.note ? (
           <LabelWithNote>
             {option.label}
@@ -159,16 +163,10 @@ const FilterOptions = ({
   const showFilterInput = showFilter || options.length > 10;
 
   return (
-    <>
+    <div>
       <MenuButton {...menu}>
         {(props) => (
-          <StyledButton
-            {...props}
-            className={className}
-            icon={selectedItems[0]?.key && selectedItems[0]?.icon}
-            neutral
-            disclosure
-          >
+          <StyledButton {...props} className={className} neutral disclosure>
             {selectedItems.length ? selectedLabel : defaultLabel}
           </StyledButton>
         )}
@@ -195,7 +193,7 @@ const FilterOptions = ({
           />
         )}
       </ContextMenu>
-    </>
+    </div>
   );
 };
 
@@ -233,7 +231,6 @@ const SearchInput = styled(Input)`
     border-radius: 0;
     border-bottom: 1px solid ${s("divider")};
     background: ${s("menuBackground")};
-    margin: 0;
   }
 
   ${NativeInput} {
@@ -270,9 +267,15 @@ export const StyledButton = styled(Button)`
   }
 
   ${Inner} {
-    line-height: 28px;
+    line-height: 24px;
     min-height: auto;
   }
+`;
+
+const Icon = styled.div`
+  margin-right: 8px;
+  width: 18px;
+  height: 18px;
 `;
 
 export default FilterOptions;

@@ -19,11 +19,3 @@ declare module "@joplin/turndown-plugin-gfm" {
   export const taskListItems: Plugin;
   export const gfm: Plugin;
 }
-
-declare module "ukkonen" {
-  export default function ukkonen(
-    first: string,
-    second: string,
-    limit?: number
-  ): number;
-}

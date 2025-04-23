@@ -10,7 +10,7 @@ import BaseTask, {
 type Props = Record<string, never>;
 
 export default class CleanupWebhookDeliveriesTask extends BaseTask<Props> {
-  static cron = TaskSchedule.Day;
+  static cron = TaskSchedule.Daily;
 
   public async perform() {
     Logger.info("task", `Deleting WebhookDeliveries older than one week…`);

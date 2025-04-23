@@ -209,9 +209,7 @@ function Invite({ onSubmit }: Props) {
                   placeholder={`name@${predictedDomain}`}
                   value={invite.email}
                   required={index === 0}
-                  autoComplete="off"
                   autoFocus
-                  data-1p-ignore
                   flex
                 />
                 <StyledInput

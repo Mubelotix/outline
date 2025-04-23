@@ -7,8 +7,6 @@ type Options = {
   onlyBlock?: boolean;
   /** Only check if the selection is inside a code mark. */
   onlyMark?: boolean;
-  /** If true then code must contain entire selection */
-  inclusive?: boolean;
 };
 
 /**
@@ -22,29 +20,17 @@ export function isInCode(state: EditorState, options?: Options): boolean {
   const { nodes, marks } = state.schema;
 
   if (!options?.onlyMark) {
-    if (
-      nodes.code_block &&
-      isNodeActive(nodes.code_block, undefined, {
-        inclusive: options?.inclusive,
-      })(state)
-    ) {
+    if (nodes.code_block && isNodeActive(nodes.code_block)(state)) {
       return true;
     }
-    if (
-      nodes.code_fence &&
-      isNodeActive(nodes.code_fence, undefined, {
-        inclusive: options?.inclusive,
-      })(state)
-    ) {
+    if (nodes.code_fence && isNodeActive(nodes.code_fence)(state)) {
       return true;
     }
   }
 
   if (!options?.onlyBlock) {
     if (marks.code_inline) {
-      return isMarkActive(marks.code_inline, undefined, {
-        inclusive: options?.inclusive,
-      })(state);
+      return isMarkActive(marks.code_inline)(state);
     }
   }
 

@@ -6,6 +6,7 @@ import styled, { css } from "styled-components";
 import { isCode } from "@shared/editor/lib/isCode";
 import { findParentNode } from "@shared/editor/queries/findParentNode";
 import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
+import { useComponentSize } from "@shared/hooks/useComponentSize";
 import { depths, s } from "@shared/styles";
 import { HEADER_HEIGHT } from "~/components/Header";
 import { Portal } from "~/components/Portal";
@@ -40,8 +41,7 @@ function usePosition({
 }) {
   const { view } = useEditor();
   const { selection } = view.state;
-  const menuWidth = menuRef.current?.offsetWidth;
-  const menuHeight = menuRef.current?.offsetHeight;
+  const { width: menuWidth, height: menuHeight } = useComponentSize(menuRef);
 
   if (!active || !menuWidth || !menuHeight || !menuRef.current) {
     return defaultPosition;
@@ -78,24 +78,13 @@ function usePosition({
 
   // position at the top right of code blocks
   const codeBlock = findParentNode(isCode)(view.state.selection);
-  const noticeBlock = findParentNode(
-    (node) => node.type.name === "container_notice"
-  )(view.state.selection);
 
-  if ((codeBlock || noticeBlock) && view.state.selection.empty) {
-    const position = codeBlock
-      ? codeBlock.pos
-      : noticeBlock
-      ? noticeBlock.pos
-      : null;
-
-    if (position !== null) {
-      const element = view.nodeDOM(position);
-      const bounds = (element as HTMLElement).getBoundingClientRect();
-      selectionBounds.top = bounds.top;
-      selectionBounds.left = bounds.right - menuWidth;
-      selectionBounds.right = bounds.right;
-    }
+  if (codeBlock && view.state.selection.empty) {
+    const element = view.nodeDOM(codeBlock.pos);
+    const bounds = (element as HTMLElement).getBoundingClientRect();
+    selectionBounds.top = bounds.top;
+    selectionBounds.left = bounds.right - menuWidth;
+    selectionBounds.right = bounds.right;
   }
 
   // tables are an oddity, and need their own positioning logic
@@ -199,8 +188,7 @@ function usePosition({
     top: Math.round(top - offsetParent.top),
     offset: Math.round(offset),
     maxWidth: Math.min(window.innerWidth, offsetParent.width) - margin * 2,
-    blockSelection:
-      codeBlock || isColSelection || isRowSelection || noticeBlock,
+    blockSelection: codeBlock || isColSelection || isRowSelection,
     visible: true,
   };
 }

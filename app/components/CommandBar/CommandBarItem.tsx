@@ -3,7 +3,6 @@ import { ArrowIcon, BackIcon } from "outline-icons";
 import * as React from "react";
 import styled, { css, useTheme } from "styled-components";
 import { s, ellipsis } from "@shared/styles";
-import { normalizeKeyDisplay } from "@shared/utils/keyboard";
 import Flex from "~/components/Flex";
 import Key from "~/components/Key";
 import Text from "~/components/Text";
@@ -71,7 +70,7 @@ function CommandBarItem(
                 ""
               )}
               {sc.split("+").map((key) => (
-                <Key key={key}>{normalizeKeyDisplay(key)}</Key>
+                <Key key={key}>{key}</Key>
               ))}
             </React.Fragment>
           ))}

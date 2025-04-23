@@ -6,8 +6,6 @@ export class EditorStyleHelper {
 
   static readonly imageHandle = "image-handle";
 
-  static readonly imageCaption = "caption";
-
   // Comments
 
   static readonly comment = "comment-marker";

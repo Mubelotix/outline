@@ -6,6 +6,7 @@ import ExportJSONTask from "../tasks/ExportJSONTask";
 import ExportMarkdownZipTask from "../tasks/ExportMarkdownZipTask";
 import ImportJSONTask from "../tasks/ImportJSONTask";
 import ImportMarkdownZipTask from "../tasks/ImportMarkdownZipTask";
+import ImportNotionTask from "../tasks/ImportNotionTask";
 import BaseProcessor from "./BaseProcessor";
 
 export default class FileOperationCreatedProcessor extends BaseProcessor {
@@ -21,6 +22,11 @@ export default class FileOperationCreatedProcessor extends BaseProcessor {
       switch (fileOperation.format) {
         case FileOperationFormat.MarkdownZip:
           await ImportMarkdownZipTask.schedule({
+            fileOperationId: event.modelId,
+          });
+          break;
+        case FileOperationFormat.Notion:
+          await ImportNotionTask.schedule({
             fileOperationId: event.modelId,
           });
           break;

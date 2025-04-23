@@ -8,8 +8,6 @@ type RequestResponse<T> = {
   error: unknown;
   /** Whether the request is currently in progress. */
   loading: boolean;
-  /** Whether the request has completed - useful to check if the request has completed at least once. */
-  loaded: boolean;
   /** Function to start the request. */
   request: () => Promise<T | undefined>;
 };
@@ -28,7 +26,6 @@ export default function useRequest<T = unknown>(
   const isMounted = useIsMounted();
   const [data, setData] = React.useState<T>();
   const [loading, setLoading] = React.useState<boolean>(false);
-  const [loaded, setLoaded] = React.useState<boolean>(false);
   const [error, setError] = React.useState();
 
   const request = React.useCallback(async () => {
@@ -39,7 +36,6 @@ export default function useRequest<T = unknown>(
       if (isMounted()) {
         setData(response);
         setError(undefined);
-        setLoaded(true);
       }
       return response;
     } catch (err) {
@@ -61,5 +57,5 @@ export default function useRequest<T = unknown>(
     }
   }, [request, makeRequestOnMount]);
 
-  return { data, loading, loaded, error, request };
+  return { data, loading, error, request };
 }

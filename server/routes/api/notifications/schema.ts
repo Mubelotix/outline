@@ -30,7 +30,6 @@ export const NotificationsUnsubscribeSchema = BaseSchema.extend({
     eventType: z.nativeEnum(NotificationEventType).optional(),
   }),
   query: z.object({
-    follow: z.string().default(""),
     userId: z.string().uuid().optional(),
     token: z.string().optional(),
     eventType: z.nativeEnum(NotificationEventType).optional(),
@@ -75,7 +74,7 @@ export type NotificationsUpdateAllReq = z.infer<
 
 export const NotificationsPixelSchema = BaseSchema.extend({
   query: z.object({
-    id: z.string().uuid(),
+    id: z.string(),
     token: z.string(),
   }),
 });

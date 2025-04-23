@@ -27,7 +27,6 @@ export type MenuItemButton = {
   selected?: boolean;
   disabled?: boolean;
   icon?: React.ReactNode;
-  tooltip?: React.ReactChild;
 };
 
 export type MenuItemWithChildren = {
@@ -206,31 +205,8 @@ export type WebsocketEvent =
   | WebsocketEntitiesEvent
   | WebsocketCommentReactionEvent;
 
-type CursorPosition = {
-  type: {
-    client: number;
-    clock: number;
-  };
-  tname: string | null;
-  item: {
-    client: number;
-    clock: number;
-  };
-  assoc: number;
-};
-
-type Cursor = {
-  anchor: CursorPosition;
-  head: CursorPosition;
-};
-
 export type AwarenessChangeEvent = {
-  states: {
-    clientId: number;
-    user?: { id: string };
-    cursor: Cursor;
-    scrollY: number | undefined;
-  }[];
+  states: { user?: { id: string }; cursor: any; scrollY: number | undefined }[];
 };
 
 export const EmptySelectValue = "__empty__";

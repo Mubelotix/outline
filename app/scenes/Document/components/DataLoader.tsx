@@ -6,10 +6,9 @@ import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 import { RevisionHelper } from "@shared/utils/RevisionHelper";
 import Document from "~/models/Document";
 import Revision from "~/models/Revision";
-import Error402 from "~/scenes/Errors/Error402";
-import Error403 from "~/scenes/Errors/Error403";
-import Error404 from "~/scenes/Errors/Error404";
-import ErrorOffline from "~/scenes/Errors/ErrorOffline";
+import Error402 from "~/scenes/Error402";
+import Error404 from "~/scenes/Error404";
+import ErrorOffline from "~/scenes/ErrorOffline";
 import { useDocumentContext } from "~/components/DocumentContext";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
 import useCurrentUser from "~/hooks/useCurrentUser";
@@ -18,7 +17,6 @@ import useStores from "~/hooks/useStores";
 import { Properties } from "~/types";
 import Logger from "~/utils/Logger";
 import {
-  AuthorizationError,
   NotFoundError,
   OfflineError,
   PaymentRequiredError,
@@ -185,7 +183,7 @@ function DataLoader({ match, children }: Props) {
 
       // Prevents unauthorized request to load share information for the document
       // when viewing a public share link
-      if (can.read && !document.isDeleted && !revisionId) {
+      if (can.read && !document.isDeleted) {
         if (team.getPreference(TeamPreference.Commenting)) {
           void comments.fetchAll({
             documentId: document.id,
@@ -201,25 +199,13 @@ function DataLoader({ match, children }: Props) {
         });
       }
     }
-  }, [
-    can.read,
-    can.update,
-    document,
-    isEditRoute,
-    comments,
-    team,
-    shares,
-    ui,
-    revisionId,
-  ]);
+  }, [can.read, can.update, document, isEditRoute, comments, team, shares, ui]);
 
   if (error) {
     return error instanceof OfflineError ? (
       <ErrorOffline />
     ) : error instanceof PaymentRequiredError ? (
       <Error402 />
-    ) : error instanceof AuthorizationError ? (
-      <Error403 />
     ) : (
       <Error404 />
     );

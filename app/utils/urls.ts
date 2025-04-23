@@ -49,10 +49,8 @@ export function redirectTo(url: string) {
 /**
  * Check if the path is a valid path for redirect after login.
  *
- * @param input A path potentially including query string
+ * @param path
  * @returns boolean indicating if the path is a valid redirect
  */
-export const isAllowedLoginRedirect = (input: string) => {
-  const path = input.split("?")[0];
-  return !["/", "/create", "/home", "/logout", "/auth/"].includes(path);
-};
+export const isAllowedLoginRedirect = (path: string) =>
+  !["/", "/create", "/home", "/logout", "/auth/"].includes(path);

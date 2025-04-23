@@ -6,12 +6,10 @@ import { toast } from "sonner";
 import styled from "styled-components";
 import { richExtensions } from "@shared/editor/nodes";
 import { s } from "@shared/styles";
-import { CollectionValidation } from "@shared/validations";
 import Collection from "~/models/Collection";
 import Editor from "~/components/Editor";
 import LoadingIndicator from "~/components/LoadingIndicator";
 import { withUIExtensions } from "~/editor/extensions";
-import useCurrentUser from "~/hooks/useCurrentUser";
 import usePolicy from "~/hooks/usePolicy";
 import useStores from "~/hooks/useStores";
 import Text from "./Text";
@@ -25,7 +23,6 @@ type Props = {
 function CollectionDescription({ collection }: Props) {
   const { collections } = useStores();
   const { t } = useTranslation();
-  const user = useCurrentUser({ rejectOnEmpty: true });
   const can = usePolicy(collection);
 
   const handleSave = React.useMemo(
@@ -64,10 +61,9 @@ function CollectionDescription({ collection }: Props) {
             onChange={handleSave}
             placeholder={`${t("Add a description")}…`}
             extensions={extensions}
-            maxLength={CollectionValidation.maxDescriptionLength}
+            maxLength={1000}
             canUpdate={can.update}
             readOnly={!can.update}
-            userId={user.id}
             editorStyle={editorStyle}
             embedsDisabled
           />

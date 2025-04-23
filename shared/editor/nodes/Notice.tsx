@@ -2,7 +2,6 @@ import { Token } from "markdown-it";
 import { WarningIcon, InfoIcon, StarredIcon, DoneIcon } from "outline-icons";
 import { wrappingInputRule } from "prosemirror-inputrules";
 import { NodeSpec, Node as ProsemirrorNode, NodeType } from "prosemirror-model";
-import { Command, EditorState, Transaction } from "prosemirror-state";
 import * as React from "react";
 import ReactDOM from "react-dom";
 import { Primitive } from "utility-types";
@@ -10,13 +9,6 @@ import toggleWrap from "../commands/toggleWrap";
 import { MarkdownSerializerState } from "../lib/markdown/serializer";
 import noticesRule from "../rules/notices";
 import Node from "./Node";
-
-export enum NoticeTypes {
-  Info = "info",
-  Success = "success",
-  Tip = "tip",
-  Warning = "warning",
-}
 
 export default class Notice extends Node {
   get name() {
@@ -31,7 +23,7 @@ export default class Notice extends Node {
     return {
       attrs: {
         style: {
-          default: NoticeTypes.Info,
+          default: "info",
         },
       },
       content:
@@ -46,12 +38,12 @@ export default class Notice extends Node {
           contentElement: (node: HTMLDivElement) =>
             node.querySelector("div.content") || node,
           getAttrs: (dom: HTMLDivElement) => ({
-            style: dom.className.includes(NoticeTypes.Tip)
-              ? NoticeTypes.Tip
-              : dom.className.includes(NoticeTypes.Warning)
-              ? NoticeTypes.Warning
-              : dom.className.includes(NoticeTypes.Success)
-              ? NoticeTypes.Success
+            style: dom.className.includes("tip")
+              ? "tip"
+              : dom.className.includes("warning")
+              ? "warning"
+              : dom.className.includes("success")
+              ? "success"
               : undefined,
           }),
         },
@@ -68,10 +60,10 @@ export default class Notice extends Node {
           tag: "div.alert.theme-admonition",
           preserveWhitespace: "full",
           getAttrs: (dom: HTMLDivElement) => ({
-            style: dom.className.includes(NoticeTypes.Warning)
-              ? NoticeTypes.Warning
-              : dom.className.includes(NoticeTypes.Success)
-              ? NoticeTypes.Success
+            style: dom.className.includes("warning")
+              ? "warning"
+              : dom.className.includes("success")
+              ? "success"
               : undefined,
           }),
         },
@@ -81,11 +73,11 @@ export default class Notice extends Node {
           preserveWhitespace: "full",
           getAttrs: (dom: HTMLDivElement) => ({
             style: dom.className.includes("confluence-information-macro-tip")
-              ? NoticeTypes.Success
+              ? "success"
               : dom.className.includes("confluence-information-macro-note")
-              ? NoticeTypes.Tip
+              ? "tip"
               : dom.className.includes("confluence-information-macro-warning")
-              ? NoticeTypes.Warning
+              ? "warning"
               : undefined,
           }),
         },
@@ -95,11 +87,11 @@ export default class Notice extends Node {
         if (typeof document !== "undefined") {
           let component;
 
-          if (node.attrs.style === NoticeTypes.Tip) {
+          if (node.attrs.style === "tip") {
             component = <StarredIcon />;
-          } else if (node.attrs.style === NoticeTypes.Warning) {
+          } else if (node.attrs.style === "warning") {
             component = <WarningIcon />;
-          } else if (node.attrs.style === NoticeTypes.Success) {
+          } else if (node.attrs.style === "success") {
             component = <DoneIcon />;
           } else {
             component = <InfoIcon />;
@@ -121,40 +113,26 @@ export default class Notice extends Node {
   }
 
   commands({ type }: { type: NodeType }) {
-    return {
-      container_notice: (attrs: Record<string, Primitive>) =>
-        toggleWrap(type, attrs),
-      info: (): Command => (state, dispatch) =>
-        this.handleStyleChange(state, dispatch, NoticeTypes.Info),
-      warning: (): Command => (state, dispatch) =>
-        this.handleStyleChange(state, dispatch, NoticeTypes.Warning),
-      success: (): Command => (state, dispatch) =>
-        this.handleStyleChange(state, dispatch, NoticeTypes.Success),
-      tip: (): Command => (state, dispatch) =>
-        this.handleStyleChange(state, dispatch, NoticeTypes.Tip),
-    };
+    return (attrs: Record<string, Primitive>) => toggleWrap(type, attrs);
   }
 
-  handleStyleChange = (
-    state: EditorState,
-    dispatch: ((tr: Transaction) => void) | undefined,
-    style: NoticeTypes
-  ): boolean => {
-    const { tr, selection } = state;
-    const { $from } = selection;
-    const node = $from.node(-1);
-
-    if (node?.type.name === this.name) {
-      if (dispatch) {
-        const transaction = tr.setNodeMarkup($from.before(-1), undefined, {
-          ...node.attrs,
-          style,
-        });
-        dispatch(transaction);
-      }
-      return true;
+  handleStyleChange = (event: InputEvent) => {
+    const { view } = this.editor;
+    const { tr } = view.state;
+    const element = event.target;
+    if (!(element instanceof HTMLSelectElement)) {
+      return;
     }
-    return false;
+
+    const { top, left } = element.getBoundingClientRect();
+    const result = view.posAtCoords({ top, left });
+
+    if (result) {
+      const transaction = tr.setNodeMarkup(result.inside, undefined, {
+        style: element.value,
+      });
+      view.dispatch(transaction);
+    }
   };
 
   inputRules({ type }: { type: NodeType }) {

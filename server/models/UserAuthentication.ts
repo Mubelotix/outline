@@ -7,7 +7,6 @@ import {
 } from "sequelize";
 import {
   BeforeCreate,
-  BeforeUpdate,
   BelongsTo,
   Column,
   DataType,
@@ -68,13 +67,6 @@ class UserAuthentication extends IdModel<
   @BeforeCreate
   static setValidated(model: UserAuthentication) {
     model.lastValidatedAt = new Date();
-  }
-
-  @BeforeUpdate
-  static updateValidated(model: UserAuthentication) {
-    if (model.changed("accessToken")) {
-      model.lastValidatedAt = new Date();
-    }
   }
 
   // instance methods

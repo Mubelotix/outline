@@ -11,11 +11,6 @@ type Props = {
   className?: string;
 };
 
-/**
- * Squircle is a component that renders a square with rounded corners (squircle shape).
- * It's commonly used for app icons, avatars, and other UI elements where a softer
- * square shape is desired.
- */
 const Squircle: React.FC<Props> = ({
   color,
   size = 28,

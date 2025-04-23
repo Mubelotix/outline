@@ -41,9 +41,9 @@ function DocumentExplorerNode(
 ) {
   const { t } = useTranslation();
   const OFFSET = 12;
-  const DISCLOSURE = 20;
+  const ICON_SIZE = 24;
 
-  const width = depth ? depth * DISCLOSURE + OFFSET : DISCLOSURE;
+  const width = depth ? depth * ICON_SIZE + OFFSET : ICON_SIZE;
 
   return (
     <Node

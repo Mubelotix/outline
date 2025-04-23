@@ -5,12 +5,11 @@ import find from "lodash/find";
 import omitBy from "lodash/omitBy";
 import orderBy from "lodash/orderBy";
 import { observable, action, computed, runInAction } from "mobx";
-import {
-  SubscriptionType,
-  type DateFilter,
-  type NavigationNode,
-  type PublicTeam,
-  type StatusFilter,
+import type {
+  DateFilter,
+  NavigationNode,
+  PublicTeam,
+  StatusFilter,
 } from "@shared/types";
 import { subtractDate } from "@shared/utils/date";
 import { bytesToHumanReadable } from "@shared/utils/files";
@@ -64,7 +63,6 @@ export default class DocumentsStore extends Store<Document> {
     ".md",
     ".doc",
     ".docx",
-    ".tsv",
     "text/csv",
     "text/markdown",
     "text/plain",
@@ -344,8 +342,18 @@ export default class DocumentsStore extends Store<Document> {
   };
 
   @action
-  fetchArchived = async (options?: PaginationParams): Promise<Document[]> =>
-    this.fetchNamedPage("archived", options);
+  fetchArchived = async (options?: PaginationParams): Promise<Document[]> => {
+    const archivedInResponse = await this.fetchNamedPage("archived", options);
+    const archivedInMemory = this.archived;
+
+    archivedInMemory.forEach((docInMemory) => {
+      !archivedInResponse.find(
+        (docInResponse) => docInResponse.id === docInMemory.id
+      ) && this.remove(docInMemory.id);
+    });
+
+    return archivedInResponse;
+  };
 
   @action
   fetchDeleted = async (options?: PaginationParams): Promise<Document[]> =>
@@ -767,30 +775,17 @@ export default class DocumentsStore extends Store<Document> {
   };
 
   @action
-  unpublish = async (
-    document: Document,
-    options: { detach?: boolean } = {
-      detach: false,
-    }
-  ) => {
+  unpublish = async (document: Document) => {
     const res = await client.post("/documents.unpublish", {
       id: document.id,
-      ...options,
     });
 
     runInAction("Document#unpublish", () => {
       invariant(res?.data, "Data should be available");
-      // unpublishing could sometimes detach the document from the collection.
-      // so, get the collection id before data is updated.
-      const collectionId = document.collectionId;
-
       document.updateData(res.data);
       this.addPolicies(res.policies);
-
-      if (collectionId) {
-        const collection = this.rootStore.collections.get(collectionId);
-        collection?.removeDocument(document.id);
-      }
+      const collection = this.getCollectionForDocument(document);
+      void collection?.fetchDocuments({ force: true });
     });
   };
 
@@ -818,7 +813,7 @@ export default class DocumentsStore extends Store<Document> {
   subscribe = (document: Document) =>
     this.rootStore.subscriptions.create({
       documentId: document.id,
-      event: SubscriptionType.Document,
+      event: "documents.update",
     });
 
   unsubscribe = (document: Document) => {

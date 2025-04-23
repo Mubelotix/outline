@@ -43,6 +43,12 @@ export default abstract class Model {
     this: Model,
     options: { withoutPolicies?: boolean } = {}
   ): Promise<any> {
+    const relations = getRelationsForModelClass(
+      this.constructor as typeof Model
+    );
+    if (!relations) {
+      return;
+    }
     // this is to ensure that multiple loads don’t happen in parallel
     if (this.loadingRelations) {
       return this.loadingRelations;
@@ -50,20 +56,14 @@ export default abstract class Model {
 
     const promises = [];
 
-    const relations = getRelationsForModelClass(
-      this.constructor as typeof Model
-    );
-
-    if (relations) {
-      for (const properties of relations.values()) {
-        const store = this.store.rootStore.getStoreForModelName(
-          properties.relationClassResolver().modelName
-        );
-        if ("fetch" in store) {
-          const id = this[properties.idKey];
-          if (id) {
-            promises.push(store.fetch(id as string));
-          }
+    for (const properties of relations.values()) {
+      const store = this.store.rootStore.getStoreForModelName(
+        properties.relationClassResolver().modelName
+      );
+      if ("fetch" in store) {
+        const id = this[properties.idKey];
+        if (id) {
+          promises.push(store.fetch(id as string));
         }
       }
     }

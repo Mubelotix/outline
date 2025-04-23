@@ -23,10 +23,7 @@ function Dialogs() {
           key={id}
           isOpen={modal.isOpen}
           fullscreen={modal.fullscreen ?? false}
-          onRequestClose={() => {
-            modal.onClose?.();
-            dialogs.closeModal(id);
-          }}
+          onRequestClose={() => dialogs.closeModal(id)}
           title={modal.title}
           style={modal.style}
         >

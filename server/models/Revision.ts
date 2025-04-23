@@ -15,7 +15,7 @@ import {
   Length as SimpleLength,
 } from "sequelize-typescript";
 import type { ProsemirrorData } from "@shared/types";
-import { DocumentValidation, RevisionValidation } from "@shared/validations";
+import { DocumentValidation } from "@shared/validations";
 import Document from "./Document";
 import User from "./User";
 import IdModel from "./base/IdModel";
@@ -42,7 +42,6 @@ class Revision extends IdModel<
   @Column(DataType.SMALLINT)
   version?: number | null;
 
-  /** The editor version at the time of the revision */
   @SimpleLength({
     max: 255,
     msg: `editorVersion must be 255 characters or less`,
@@ -50,7 +49,6 @@ class Revision extends IdModel<
   @Column
   editorVersion: string;
 
-  /** The document title at the time of the revision */
   @Length({
     max: DocumentValidation.maxTitleLength,
     msg: `Revision title must be ${DocumentValidation.maxTitleLength} characters or less`,
@@ -58,29 +56,22 @@ class Revision extends IdModel<
   @Column
   title: string;
 
-  /** An optional name for the revision */
-  @Length({
-    max: RevisionValidation.maxNameLength,
-    msg: `Revision name must be ${RevisionValidation.maxNameLength} characters or less`,
-  })
-  @Column
-  name: string | null;
-
   /**
    * The content of the revision as Markdown.
    *
-   * @deprecated Use `content` instead, or `DocumentHelper.toMarkdown` if
-   * exporting lossy markdown. This column will be removed in a future migration
-   * and is no longer being written.
+   * @deprecated Use `content` instead, or `DocumentHelper.toMarkdown` if exporting lossy markdown.
+   * This column will be removed in a future migration.
    */
   @Column(DataType.TEXT)
   text: string;
 
-  /** The content of the revision as JSON. */
+  /**
+   * The content of the revision as JSON.
+   */
   @Column(DataType.JSONB)
   content: ProsemirrorData | null;
 
-  /** The icon at the time of the revision. */
+  /** An icon to use as the document icon. */
   @Length({
     max: 50,
     msg: `icon must be 50 characters or less`,
@@ -88,7 +79,7 @@ class Revision extends IdModel<
   @Column
   icon: string | null;
 
-  /** The color at the time of the revision. */
+  /** The color of the icon. */
   @IsHexColor
   @Column
   color: string | null;
@@ -135,6 +126,7 @@ class Revision extends IdModel<
   static buildFromDocument(document: Document) {
     return this.build({
       title: document.title,
+      text: document.text,
       icon: document.icon,
       color: document.color,
       content: document.content,

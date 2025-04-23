@@ -111,26 +111,23 @@ export function newNestedDocumentPath(parentDocumentId?: string): string {
   return `/doc/new?${queryString.stringify({ parentDocumentId })}`;
 }
 
-export function searchPath({
-  query,
-  collectionId,
-  documentId,
-  ref,
-}: {
-  query?: string;
-  collectionId?: string;
-  documentId?: string;
-  ref?: string;
-} = {}): string {
-  let search = queryString.stringify({
-    q: query,
-    collectionId,
-    documentId,
-    ref,
-  });
+export function searchPath(
+  query?: string,
+  params: {
+    collectionId?: string;
+    documentId?: string;
+    ref?: string;
+  } = {}
+): string {
+  let search = queryString.stringify(params);
+  let route = "/search";
+
+  if (query) {
+    route += `/${encodeURIComponent(query.replace(/%/g, "%25"))}`;
+  }
 
   search = search ? `?${search}` : "";
-  return `/search${search}`;
+  return `${route}${search}`;
 }
 
 export function sharedDocumentPath(shareId: string, docPath?: string) {

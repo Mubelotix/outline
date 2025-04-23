@@ -24,14 +24,6 @@ export default function useQueryNotices() {
         );
         break;
       }
-      case QueryNotices.UnsubscribeCollection: {
-        toast.success(
-          t("Unsubscribed from collection", {
-            type: "success",
-          })
-        );
-        break;
-      }
       default:
     }
   }, [t, notice]);

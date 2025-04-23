@@ -29,7 +29,6 @@ export type SharesInfoReq = z.infer<typeof SharesInfoSchema>;
 
 export const SharesListSchema = BaseSchema.extend({
   body: z.object({
-    query: z.string().optional(),
     sort: z
       .string()
       .refine((val) => Object.keys(Share.getAttributes()).includes(val), {

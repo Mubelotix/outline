@@ -1,11 +1,10 @@
 import { Blob } from "buffer";
 import { Readable } from "stream";
 import { PresignedPost } from "@aws-sdk/s3-presigned-post";
-import FileHelper from "@shared/editor/lib/FileHelper";
-import { isBase64Url, isInternalUrl } from "@shared/utils/urls";
+import { isBase64Url } from "@shared/utils/urls";
 import env from "@server/env";
 import Logger from "@server/logging/Logger";
-import fetch, { chromeUserAgent, RequestInit } from "@server/utils/fetch";
+import fetch, { RequestInit } from "@server/utils/fetch";
 
 export default abstract class BaseStorage {
   /** The default number of seconds until a signed URL expires. */
@@ -150,7 +149,7 @@ export default abstract class BaseStorage {
     const endpoint = this.getUploadUrl(true);
 
     // Early return if url is already uploaded to the storage provider
-    if (url.startsWith(endpoint) || isInternalUrl(url)) {
+    if (url.startsWith("/api") || url.startsWith(endpoint)) {
       return;
     }
 
@@ -169,9 +168,6 @@ export default abstract class BaseStorage {
             options?.maxUploadSize ?? Infinity,
             env.FILE_STORAGE_UPLOAD_MAX_SIZE
           ),
-          headers: {
-            "User-Agent": chromeUserAgent,
-          },
           timeout: 10000,
           ...init,
         });
@@ -240,14 +236,14 @@ export default abstract class BaseStorage {
    * @returns The content disposition
    */
   public getContentDisposition(contentType?: string) {
-    if (!contentType) {
-      return "attachment";
+    if (contentType && this.safeInlineContentTypes.includes(contentType)) {
+      return "inline";
     }
-
     if (
-      FileHelper.isAudio(contentType) ||
-      FileHelper.isVideo(contentType) ||
-      this.safeInlineContentTypes.includes(contentType)
+      contentType &&
+      this.safeInlineContentPrefixes.some((prefix) =>
+        contentType.startsWith(prefix)
+      )
     ) {
       return "inline";
     }
@@ -256,8 +252,8 @@ export default abstract class BaseStorage {
   }
 
   /**
-   * A list of content types considered safe to display inline in the browser.
-   * Note that SVGs are purposefully not included here as they can contain JS.
+   * A list of content types considered safe to display inline in the browser. Note that
+   * SVGs are purposefully not included here as they can contain JavaScript.
    */
   protected safeInlineContentTypes = [
     "application/pdf",
@@ -266,4 +262,9 @@ export default abstract class BaseStorage {
     "image/gif",
     "image/webp",
   ];
+
+  /**
+   * A list of content type prefixes considered safe to display inline in the browser.
+   */
+  protected safeInlineContentPrefixes = ["video/", "audio/"];
 }

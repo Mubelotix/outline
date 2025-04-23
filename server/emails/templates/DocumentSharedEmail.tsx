@@ -1,6 +1,6 @@
 import * as React from "react";
 import { DocumentPermission } from "@shared/types";
-import { Document, GroupMembership, UserMembership } from "@server/models";
+import { Document, UserMembership } from "@server/models";
 import BaseEmail, { EmailMessageCategory, EmailProps } from "./BaseEmail";
 import Body from "./components/Body";
 import Button from "./components/Button";
@@ -11,14 +11,13 @@ import Heading from "./components/Heading";
 type InputProps = EmailProps & {
   userId: string;
   documentId: string;
-  membershipId?: string;
   actorName: string;
   teamUrl: string;
 };
 
 type BeforeSend = {
   document: Document;
-  membership: UserMembership | GroupMembership;
+  membership: UserMembership;
 };
 
 type Props = InputProps & BeforeSend;
@@ -34,20 +33,18 @@ export default class DocumentSharedEmail extends BaseEmail<
     return EmailMessageCategory.Notification;
   }
 
-  protected async beforeSend({ documentId, membershipId }: InputProps) {
-    if (!membershipId) {
-      return false;
-    }
-
+  protected async beforeSend({ documentId, userId }: InputProps) {
     const document = await Document.unscoped().findByPk(documentId);
     if (!document) {
       return false;
     }
 
-    const membership =
-      (await UserMembership.findByPk(membershipId)) ??
-      (await GroupMembership.findByPk(membershipId));
-
+    const membership = await UserMembership.findOne({
+      where: {
+        documentId,
+        userId,
+      },
+    });
     if (!membership) {
       return false;
     }

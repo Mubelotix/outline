@@ -24,54 +24,6 @@ import useOnClickOutside from "~/hooks/useOnClickOutside";
 import Desktop from "~/utils/Desktop";
 import { useEditor } from "./EditorContext";
 
-type KeyboardShortcutsProps = {
-  popover: ReturnType<typeof usePopoverState>;
-  handleOpen: ({ withReplace }: { withReplace: boolean }) => void;
-  handleCaseSensitive: () => void;
-  handleRegex: () => void;
-};
-
-function useKeyboardShortcuts({
-  popover,
-  handleOpen,
-  handleCaseSensitive,
-  handleRegex,
-}: KeyboardShortcutsProps) {
-  // Open popover
-  useKeyDown(
-    (ev) =>
-      isModKey(ev) &&
-      ev.code === "KeyF" &&
-      // Keyboard handler is through the AppMenu on Desktop v1.2.0+
-      !(Desktop.bridge && "onFindInPage" in Desktop.bridge),
-    (ev) => {
-      ev.preventDefault();
-      handleOpen({ withReplace: ev.altKey });
-    },
-    { allowInInput: true }
-  );
-
-  // Enable/disable case sensitive search
-  useKeyDown(
-    (ev) => isModKey(ev) && ev.altKey && ev.code === "KeyC" && popover.visible,
-    (ev) => {
-      ev.preventDefault();
-      handleCaseSensitive();
-    },
-    { allowInInput: true }
-  );
-
-  // Enable/disable regex search
-  useKeyDown(
-    (ev) => isModKey(ev) && ev.altKey && ev.code === "KeyR" && popover.visible,
-    (ev) => {
-      ev.preventDefault();
-      handleRegex();
-    },
-    { allowInInput: true }
-  );
-}
-
 type Props = {
   /** Whether the find and replace popover is open */
   open: boolean;
@@ -137,48 +89,42 @@ export default function FindAndReplace({
     }
   }, [show]);
 
-  // Callbacks
-  const selectInputText = React.useCallback(() => {
-    inputRef.current?.focus();
-    inputRef.current?.setSelectionRange(0, inputRef.current?.value.length);
-  }, []);
+  useOnClickOutside(popover.unstable_referenceRef, popover.hide);
 
-  const selectInputReplaceText = React.useCallback(() => {
-    setTimeout(() => {
-      inputReplaceRef.current?.focus();
-      inputReplaceRef.current?.setSelectionRange(
-        0,
-        inputReplaceRef.current?.value.length
-      );
-    }, 100);
-  }, []);
-
-  const handleOpen = React.useCallback(
-    ({ withReplace }: { withReplace: boolean }) => {
-      const shouldShowReplace = !readOnly && withReplace;
-
-      // If already open, switch focus to corresponding input text.
-      if (popover.visible) {
-        if (shouldShowReplace) {
-          setShowReplace(true);
-          selectInputReplaceText();
-        } else {
-          selectInputText();
-        }
-
-        return;
-      }
-
+  // Keyboard shortcuts
+  useKeyDown(
+    (ev) =>
+      isModKey(ev) &&
+      !popover.visible &&
+      ev.code === "KeyF" &&
+      // Keyboard handler is through the AppMenu on Desktop v1.2.0+
+      !(Desktop.bridge && "onFindInPage" in Desktop.bridge),
+    (ev) => {
+      ev.preventDefault();
       selectionRef.current = window.getSelection()?.toString();
       popover.show();
-
-      if (shouldShowReplace) {
-        setShowReplace(true);
-      }
-    },
-    [popover, readOnly, selectInputText, selectInputReplaceText]
+    }
   );
 
+  useKeyDown(
+    (ev) => isModKey(ev) && ev.altKey && ev.code === "KeyR" && popover.visible,
+    (ev) => {
+      ev.preventDefault();
+      setRegex((state) => !state);
+    },
+    { allowInInput: true }
+  );
+
+  useKeyDown(
+    (ev) => isModKey(ev) && ev.altKey && ev.code === "KeyC" && popover.visible,
+    (ev) => {
+      ev.preventDefault();
+      setCaseSensitive((state) => !state);
+    },
+    { allowInInput: true }
+  );
+
+  // Callbacks
   const handleMore = React.useCallback(() => {
     setShowReplace((state) => !state);
     setTimeout(() => inputReplaceRef.current?.focus(), 100);
@@ -186,65 +132,68 @@ export default function FindAndReplace({
 
   const handleCaseSensitive = React.useCallback(() => {
     setCaseSensitive((state) => {
-      const isCaseSensitive = !state;
+      const caseSensitive = !state;
 
       editor.commands.find({
         text: searchTerm,
-        caseSensitive: isCaseSensitive,
+        caseSensitive,
         regexEnabled,
       });
 
-      return isCaseSensitive;
+      return caseSensitive;
     });
   }, [regexEnabled, editor.commands, searchTerm]);
 
   const handleRegex = React.useCallback(() => {
     setRegex((state) => {
-      const isRegexEnabled = !state;
+      const regexEnabled = !state;
 
       editor.commands.find({
         text: searchTerm,
         caseSensitive,
-        regexEnabled: isRegexEnabled,
+        regexEnabled,
       });
 
-      return isRegexEnabled;
+      return regexEnabled;
     });
   }, [caseSensitive, editor.commands, searchTerm]);
 
   const handleKeyDown = React.useCallback(
     (ev: React.KeyboardEvent<HTMLInputElement>) => {
-      function nextPrevious() {
+      function nextPrevious(ev: React.KeyboardEvent<HTMLInputElement>) {
         if (ev.shiftKey) {
           editor.commands.prevSearchMatch();
         } else {
           editor.commands.nextSearchMatch();
         }
       }
+      function selectInputText() {
+        inputRef.current?.setSelectionRange(0, inputRef.current?.value.length);
+      }
 
       switch (ev.key) {
         case "Enter": {
           ev.preventDefault();
-          nextPrevious();
+          nextPrevious(ev);
           return;
         }
         case "g": {
           if (ev.metaKey) {
             ev.preventDefault();
-            nextPrevious();
+            nextPrevious(ev);
             selectInputText();
           }
           return;
         }
         case "F3": {
           ev.preventDefault();
-          nextPrevious();
+          nextPrevious(ev);
           selectInputText();
           return;
         }
       }
     },
-    [editor.commands, selectInputText]
+    [editor.commands]
   );
 
   const handleReplace = React.useCallback(
@@ -294,15 +243,6 @@ export default function FindAndReplace({
     [handleReplace]
   );
 
-  useOnClickOutside(popover.unstable_referenceRef, popover.hide);
-
-  useKeyboardShortcuts({
-    popover,
-    handleOpen,
-    handleCaseSensitive,
-    handleRegex,
-  });
-
   const style: React.CSSProperties = React.useMemo(
     () => ({
       position: "fixed",
@@ -345,7 +285,7 @@ export default function FindAndReplace({
     <>
       <Tooltip
         content={t("Previous match")}
-        shortcut="Shift+Enter"
+        shortcut="shift+enter"
         placement="bottom"
       >
         <ButtonLarge
@@ -355,7 +295,7 @@ export default function FindAndReplace({
           <CaretUpIcon />
         </ButtonLarge>
       </Tooltip>
-      <Tooltip content={t("Next match")} shortcut="Enter" placement="bottom">
+      <Tooltip content={t("Next match")} shortcut="enter" placement="bottom">
         <ButtonLarge
           disabled={disabled}
           onClick={() => editor.commands.nextSearchMatch()}
@@ -414,11 +354,7 @@ export default function FindAndReplace({
             </StyledInput>
             {navigation}
             {!readOnly && (
-              <Tooltip
-                content={t("Replace options")}
-                shortcut={`${altDisplay}+${metaDisplay}+f`}
-                placement="bottom"
-              >
+              <Tooltip content={t("Replace options")} placement="bottom">
                 <ButtonLarge onClick={handleMore}>
                   <ReplaceIcon color={theme.textSecondary} />
                 </ButtonLarge>
@@ -440,28 +376,12 @@ export default function FindAndReplace({
                   onRequestSubmit={handleReplaceAll}
                   onChange={(ev) => setReplaceTerm(ev.currentTarget.value)}
                 />
-                <Tooltip
-                  content={t("Replace")}
-                  shortcut="Enter"
-                  placement="bottom"
-                >
-                  <Button onClick={handleReplace} disabled={disabled} neutral>
-                    {t("Replace")}
-                  </Button>
-                </Tooltip>
-                <Tooltip
-                  content={t("Replace all")}
-                  shortcut={`${metaDisplay}+Enter`}
-                  placement="bottom"
-                >
-                  <Button
-                    onClick={handleReplaceAll}
-                    disabled={disabled}
-                    neutral
-                  >
-                    {t("Replace all")}
-                  </Button>
-                </Tooltip>
+                <Button onClick={handleReplace} disabled={disabled} neutral>
+                  {t("Replace")}
+                </Button>
+                <Button onClick={handleReplaceAll} disabled={disabled} neutral>
+                  {t("Replace all")}
+                </Button>
               </Flex>
             )}
           </ResizingHeightContainer>

@@ -2,7 +2,6 @@ import Router from "koa-router";
 import find from "lodash/find";
 import { IntegrationService, IntegrationType } from "@shared/types";
 import { parseDomain } from "@shared/utils/domains";
-import { createContext } from "@server/context";
 import Logger from "@server/logging/Logger";
 import auth from "@server/middlewares/authentication";
 import { transaction } from "@server/middlewares/transaction";
@@ -89,27 +88,30 @@ router.get(
       },
       { transaction }
     );
-    await Integration.createWithCtx(createContext({ user, transaction }), {
-      service: IntegrationService.GitHub,
-      type: IntegrationType.Embed,
-      userId: user.id,
-      teamId: user.teamId,
-      authenticationId: authentication.id,
-      settings: {
-        github: {
-          installation: {
-            id: installationId!,
-            account: {
-              id: installation.account?.id,
-              name:
-                // @ts-expect-error Property 'login' does not exist on type
-                installation.account?.login,
-              avatarUrl: installation.account?.avatar_url,
+    await Integration.create(
+      {
+        service: IntegrationService.GitHub,
+        type: IntegrationType.Embed,
+        userId: user.id,
+        teamId: user.teamId,
+        authenticationId: authentication.id,
+        settings: {
+          github: {
+            installation: {
+              id: installationId!,
+              account: {
+                id: installation.account?.id,
+                name:
+                  // @ts-expect-error Property 'login' does not exist on type
+                  installation.account?.login,
+                avatarUrl: installation.account?.avatar_url,
+              },
             },
           },
         },
       },
-    });
+      { transaction }
+    );
     ctx.redirect(GitHubUtils.url);
   }
 );

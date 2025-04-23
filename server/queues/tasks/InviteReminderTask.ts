@@ -9,7 +9,7 @@ import BaseTask, { TaskPriority, TaskSchedule } from "./BaseTask";
 type Props = Record<string, never>;
 
 export default class InviteReminderTask extends BaseTask<Props> {
-  static cron = TaskSchedule.Day;
+  static cron = TaskSchedule.Daily;
 
   public async perform() {
     const users = await User.scope("invited").findAll({

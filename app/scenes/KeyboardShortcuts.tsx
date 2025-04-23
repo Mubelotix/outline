@@ -462,7 +462,7 @@ function KeyboardShortcuts() {
         items: [
           {
             shortcut: "@",
-            label: t("Mention users and more"),
+            label: t("Mention user or document"),
           },
           {
             shortcut: ":",

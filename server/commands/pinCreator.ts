@@ -62,13 +62,12 @@ export default async function pinCreator({
     index = fractionalIndex(pins.length ? pins[0].index : null, null);
   }
 
-  const [pin] = await Pin.findOrCreateWithCtx(ctx, {
-    where: {
-      collectionId: collectionId ?? null,
-      documentId,
-      teamId: user.teamId,
-    },
-    defaults: { index, createdById: user.id },
+  const pin = await Pin.createWithCtx(ctx, {
+    createdById: user.id,
+    teamId: user.teamId,
+    collectionId,
+    documentId,
+    index,
   });
 
   return pin;

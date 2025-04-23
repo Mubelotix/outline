@@ -1,14 +1,12 @@
 import {
   Extension,
   connectedPayload,
-  onConnectPayload,
   onDisconnectPayload,
 } from "@hocuspocus/server";
-import pluralize from "pluralize";
-import { TooManyConnections } from "@shared/collaboration/CloseEvents";
 import env from "@server/env";
 import Logger from "@server/logging/Logger";
 import { trace } from "@server/logging/tracing";
+import { TooManyConnections } from "./CloseEvents";
 import { withContext } from "./types";
 
 @trace()
@@ -16,13 +14,11 @@ export class ConnectionLimitExtension implements Extension {
   /**
    * Map of documentId -> connection count
    */
-  public connectionsByDocument: Map<string, Set<string>> = new Map();
+  connectionsByDocument: Map<string, Set<string>> = new Map();
 
   /**
-   * On disconnect hook
-   *
+   * onDisconnect hook
    * @param data The disconnect payload
-   * @returns Promise
    */
   onDisconnect({ documentName, socketId }: withContext<onDisconnectPayload>) {
     const connections = this.connectionsByDocument.get(documentName);
@@ -36,30 +32,21 @@ export class ConnectionLimitExtension implements Extension {
       }
     }
 
-    const connectionCount = connections?.size ?? 0;
     Logger.debug(
       "multiplayer",
-      `${connectionCount} ${pluralize(
-        "connection",
-        connectionCount
-      )} to "${documentName}"`
+      `${connections?.size} connections to "${documentName}"`
     );
 
     return Promise.resolve();
   }
 
   /**
-   * onConnect hook is called when a new connection has been established.
-   * This is where we can check if the document has reached the maximum number of
-   * connections and reject the connection if it has.
-   *
-   * @param data The onConnect payload
-   * @returns Promise, resolving will allow the connection, rejecting will drop.
+   * connected hook
+   * @param data The connected payload
    */
-  onConnect({ documentName }: withContext<onConnectPayload>) {
+  connected({ documentName, socketId }: withContext<connectedPayload>) {
     const connections =
       this.connectionsByDocument.get(documentName) || new Set();
-
     if (connections?.size >= env.COLLABORATION_MAX_CLIENTS_PER_DOCUMENT) {
       Logger.info(
         "multiplayer",
@@ -70,30 +57,12 @@ export class ConnectionLimitExtension implements Extension {
       return Promise.reject(TooManyConnections);
     }
 
-    return Promise.resolve();
-  }
-
-  /**
-   * Connected hook is called after a new connection has been established.
-   * We can safely update the connection count for the document.
-   *
-   * @param data The onConnect payload
-   * @returns Promise
-   */
-  connected({ documentName, socketId }: withContext<connectedPayload>) {
-    const connections =
-      this.connectionsByDocument.get(documentName) || new Set();
-
     connections.add(socketId);
     this.connectionsByDocument.set(documentName, connections);
-    const connectionCount = connections.size ?? 0;
 
     Logger.debug(
       "multiplayer",
-      `${connectionCount} ${pluralize(
-        "connection",
-        connectionCount
-      )} to "${documentName}"`
+      `${connections.size} connections to "${documentName}"`
     );
 
     return Promise.resolve();

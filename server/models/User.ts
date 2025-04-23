@@ -614,7 +614,6 @@ class User extends ParanoidModel<
           where: { email: this.email },
         },
       ],
-      order: [["createdAt", "ASC"]],
     });
 
   // hooks

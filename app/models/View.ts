@@ -7,6 +7,8 @@ import Relation from "./decorators/Relation";
 class View extends Model {
   static modelName = "View";
 
+  id: string;
+
   documentId: string;
 
   @Relation(() => Document)

@@ -1,5 +1,4 @@
 import { m } from "framer-motion";
-import { observer } from "mobx-react";
 import * as React from "react";
 import { Portal } from "react-portal";
 import styled from "styled-components";
@@ -9,7 +8,6 @@ import useEventListener from "~/hooks/useEventListener";
 import useKeyDown from "~/hooks/useKeyDown";
 import useMobile from "~/hooks/useMobile";
 import useOnClickOutside from "~/hooks/useOnClickOutside";
-import useStores from "~/hooks/useStores";
 import LoadingIndicator from "../LoadingIndicator";
 import { CARD_MARGIN } from "./Components";
 import HoverPreviewDocument from "./HoverPreviewDocument";
@@ -25,9 +23,9 @@ const POINTER_WIDTH = 22;
 type Props = {
   /** The HTML element that is being hovered over, or null if none. */
   element: HTMLElement | null;
-  /** ID of the unfurl that will be shown in the hover preview. */
-  unfurlId: string | null;
-  /** Whether the preview data is being loaded. */
+  /** Data to be previewed */
+  data: Record<string, any> | null;
+  /** Whether the preview data is being loaded */
   dataLoading: boolean;
   /** A callback on close of the hover preview. */
   onClose: () => void;
@@ -38,155 +36,151 @@ enum Direction {
   DOWN,
 }
 
-const HoverPreviewDesktop = observer(
-  ({ element, unfurlId, dataLoading, onClose }: Props) => {
-    const { unfurls } = useStores();
-    const [isVisible, setVisible] = React.useState(false);
-    const timerClose = React.useRef<ReturnType<typeof setTimeout>>();
-    const cardRef = React.useRef<HTMLDivElement | null>(null);
-    const { cardLeft, cardTop, pointerLeft, pointerTop, pointerDir } =
-      useHoverPosition({
-        cardRef,
-        element,
-        isVisible,
-      });
-    const data = unfurlId ? unfurls.get(unfurlId)?.data : undefined;
+function HoverPreviewDesktop({ element, data, dataLoading, onClose }: Props) {
+  const [isVisible, setVisible] = React.useState(false);
+  const timerClose = React.useRef<ReturnType<typeof setTimeout>>();
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
+  const { cardLeft, cardTop, pointerLeft, pointerTop, pointerDir } =
+    useHoverPosition({
+      cardRef,
+      element,
+      isVisible,
+    });
 
-    const closePreview = React.useCallback(() => {
-      setVisible(false);
-      onClose();
-    }, [onClose]);
+  const closePreview = React.useCallback(() => {
+    setVisible(false);
+    onClose();
+  }, [onClose]);
 
-    const stopCloseTimer = React.useCallback(() => {
-      if (timerClose.current) {
-        clearTimeout(timerClose.current);
-        timerClose.current = undefined;
+  const stopCloseTimer = React.useCallback(() => {
+    if (timerClose.current) {
+      clearTimeout(timerClose.current);
+      timerClose.current = undefined;
+    }
+  }, []);
+
+  const startCloseTimer = React.useCallback(() => {
+    timerClose.current = setTimeout(closePreview, DELAY_CLOSE);
+  }, [closePreview]);
+
+  // Open and close the preview when the element changes.
+  React.useEffect(() => {
+    if (element && data && !dataLoading) {
+      setVisible(true);
+    } else {
+      startCloseTimer();
+    }
+  }, [startCloseTimer, element, data, dataLoading]);
+
+  // Close the preview on Escape, scroll, or click outside.
+  useOnClickOutside(cardRef, closePreview);
+  useKeyDown("Escape", closePreview);
+  useEventListener("scroll", closePreview, window, { capture: true });
+
+  // Ensure that the preview stays open while the user is hovering over the card.
+  React.useEffect(() => {
+    const card = cardRef.current;
+
+    if (isVisible) {
+      if (card) {
+        card.addEventListener("mouseenter", stopCloseTimer);
+        card.addEventListener("mouseleave", startCloseTimer);
       }
-    }, []);
-
-    const startCloseTimer = React.useCallback(() => {
-      timerClose.current = setTimeout(closePreview, DELAY_CLOSE);
-    }, [closePreview]);
-
-    // Open and close the preview when the element changes.
-    React.useEffect(() => {
-      if (element && data && !dataLoading) {
-        setVisible(true);
-      } else {
-        startCloseTimer();
-      }
-    }, [startCloseTimer, element, data, dataLoading]);
-
-    // Close the preview on Escape, scroll, or click outside.
-    useOnClickOutside(cardRef, closePreview);
-    useKeyDown("Escape", closePreview);
-    useEventListener("scroll", closePreview, window, { capture: true });
-
-    // Ensure that the preview stays open while the user is hovering over the card.
-    React.useEffect(() => {
-      const card = cardRef.current;
-
-      if (isVisible) {
-        if (card) {
-          card.addEventListener("mouseenter", stopCloseTimer);
-          card.addEventListener("mouseleave", startCloseTimer);
-        }
-      }
-
-      return () => {
-        if (card) {
-          card.removeEventListener("mouseenter", stopCloseTimer);
-          card.removeEventListener("mouseleave", startCloseTimer);
-        }
-
-        stopCloseTimer();
-      };
-    }, [element, startCloseTimer, isVisible, stopCloseTimer]);
-
-    if (dataLoading) {
-      return <LoadingIndicator />;
     }
 
-    if (!data) {
-      return null;
-    }
+    return () => {
+      if (card) {
+        card.removeEventListener("mouseenter", stopCloseTimer);
+        card.removeEventListener("mouseleave", startCloseTimer);
+      }
 
-    return (
-      <Portal>
-        <Position top={cardTop} left={cardLeft} aria-hidden>
-          {isVisible ? (
-            <Animate
-              initial={{ opacity: 0, y: -20, pointerEvents: "none" }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                transitionEnd: { pointerEvents: "auto" },
-              }}
-            >
-              {data.type === UnfurlResourceType.Mention ? (
-                <HoverPreviewMention
-                  ref={cardRef}
-                  name={data.name}
-                  avatarUrl={data.avatarUrl}
-                  color={data.color}
-                  lastActive={data.lastActive}
-                  email={data.email}
-                />
-              ) : data.type === UnfurlResourceType.Document ? (
-                <HoverPreviewDocument
-                  ref={cardRef}
-                  url={data.url}
-                  id={data.id}
-                  title={data.title}
-                  summary={data.summary}
-                  lastActivityByViewer={data.lastActivityByViewer}
-                />
-              ) : data.type === UnfurlResourceType.Issue ? (
-                <HoverPreviewIssue
-                  ref={cardRef}
-                  url={data.url}
-                  id={data.id}
-                  title={data.title}
-                  description={data.description}
-                  author={data.author}
-                  labels={data.labels}
-                  state={data.state}
-                  createdAt={data.createdAt}
-                />
-              ) : data.type === UnfurlResourceType.PR ? (
-                <HoverPreviewPullRequest
-                  ref={cardRef}
-                  url={data.url}
-                  id={data.id}
-                  title={data.title}
-                  description={data.description}
-                  author={data.author}
-                  createdAt={data.createdAt}
-                  state={data.state}
-                />
-              ) : (
-                <HoverPreviewLink
-                  ref={cardRef}
-                  url={data.url}
-                  thumbnailUrl={data.thumbnailUrl}
-                  title={data.title}
-                  description={data.description}
-                />
-              )}
-              <Pointer
-                top={pointerTop}
-                left={pointerLeft}
-                direction={pointerDir}
-              />
-            </Animate>
-          ) : null}
-        </Position>
-      </Portal>
-    );
+      stopCloseTimer();
+    };
+  }, [element, startCloseTimer, isVisible, stopCloseTimer]);
+
+  if (dataLoading) {
+    return <LoadingIndicator />;
   }
-);
 
-function HoverPreview({ element, unfurlId, dataLoading, ...rest }: Props) {
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <Portal>
+      <Position top={cardTop} left={cardLeft} aria-hidden>
+        {isVisible ? (
+          <Animate
+            initial={{ opacity: 0, y: -20, pointerEvents: "none" }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              transitionEnd: { pointerEvents: "auto" },
+            }}
+          >
+            {data.type === UnfurlResourceType.Mention ? (
+              <HoverPreviewMention
+                ref={cardRef}
+                name={data.name}
+                avatarUrl={data.avatarUrl}
+                color={data.color}
+                lastActive={data.lastActive}
+                email={data.email}
+              />
+            ) : data.type === UnfurlResourceType.Document ? (
+              <HoverPreviewDocument
+                ref={cardRef}
+                url={data.url}
+                id={data.id}
+                title={data.title}
+                summary={data.summary}
+                lastActivityByViewer={data.lastActivityByViewer}
+              />
+            ) : data.type === UnfurlResourceType.Issue ? (
+              <HoverPreviewIssue
+                ref={cardRef}
+                url={data.url}
+                id={data.id}
+                title={data.title}
+                description={data.description}
+                author={data.author}
+                labels={data.labels}
+                state={data.state}
+                createdAt={data.createdAt}
+              />
+            ) : data.type === UnfurlResourceType.PR ? (
+              <HoverPreviewPullRequest
+                ref={cardRef}
+                url={data.url}
+                id={data.id}
+                title={data.title}
+                description={data.description}
+                author={data.author}
+                createdAt={data.createdAt}
+                state={data.state}
+              />
+            ) : (
+              <HoverPreviewLink
+                ref={cardRef}
+                url={data.url}
+                thumbnailUrl={data.thumbnailUrl}
+                title={data.title}
+                description={data.description}
+              />
+            )}
+            <Pointer
+              top={pointerTop}
+              left={pointerLeft}
+              direction={pointerDir}
+            />
+          </Animate>
+        ) : null}
+      </Position>
+    </Portal>
+  );
+}
+
+function HoverPreview({ element, data, dataLoading, ...rest }: Props) {
   const isMobile = useMobile();
   if (isMobile) {
     return null;
@@ -196,7 +190,7 @@ function HoverPreview({ element, unfurlId, dataLoading, ...rest }: Props) {
     <HoverPreviewDesktop
       {...rest}
       element={element}
-      unfurlId={unfurlId}
+      data={data}
       dataLoading={dataLoading}
     />
   );

@@ -18,14 +18,11 @@ export class CacheHelper {
    * @param key Cache key
    * @param callback Callback to get the data if not found in cache
    * @param expiry Cache data expiry in seconds
-   * @param lockTimeout Lock timeout in milliseconds
-   * @returns The data from cache or the result of the callback
    */
   public static async getDataOrSet<T>(
     key: string,
     callback: () => Promise<T | undefined>,
-    expiry: number,
-    lockTimeout: number = MutexLock.defaultLockTimeout
+    expiry?: number
   ): Promise<T | undefined> {
     let cache = await this.getData<T>(key);
 
@@ -38,7 +35,10 @@ export class CacheHelper {
     const lockKey = `lock:${key}`;
     try {
       try {
-        lock = await MutexLock.lock.acquire([lockKey], lockTimeout);
+        lock = await MutexLock.lock.acquire(
+          [lockKey],
+          MutexLock.defaultLockTimeout
+        );
       } catch (err) {
         Logger.error(`Could not acquire lock for ${key}`, err);
       }
@@ -54,9 +54,7 @@ export class CacheHelper {
       }
       return value;
     } finally {
-      if (lock && lock.expiration > new Date().getTime()) {
-        await lock.release();
-      }
+      await lock?.release();
     }
   }
 

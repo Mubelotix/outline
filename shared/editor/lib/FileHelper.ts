@@ -4,31 +4,21 @@ export default class FileHelper {
   /**
    * Checks if a file is an image.
    *
-   * @param contentType The content type of the file
+   * @param file The file to check
    * @returns True if the file is an image
    */
-  static isImage(contentType: string) {
-    return /^image\/[!#$%&'*+.^\w`|~-]+$/i.test(contentType);
+  static isImage(file: File) {
+    return file.type.startsWith("image/");
   }
 
   /**
    * Checks if a file is a video.
    *
-   * @param contentType The content type of the file
+   * @param file The file to check
    * @returns True if the file is an video
    */
-  static isVideo(contentType: string) {
-    return /^video\/[!#$%&'*+.^\w`|~-]+$/i.test(contentType);
-  }
-
-  /**
-   * Checks if a file is an audio file.
-   *
-   * @param contentType The content type of the file
-   * @returns True if the file is an audio file
-   */
-  static isAudio(contentType: string) {
-    return /^audio\/[!#$%&'*+.^\w`|~-]+$/i.test(contentType);
+  static isVideo(file: File) {
+    return file.type.startsWith("video/");
   }
 
   /**

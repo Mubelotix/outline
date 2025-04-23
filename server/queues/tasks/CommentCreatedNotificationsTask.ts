@@ -1,8 +1,4 @@
-import {
-  MentionType,
-  NotificationEventType,
-  SubscriptionType,
-} from "@shared/types";
+import { MentionType, NotificationEventType } from "@shared/types";
 import subscriptionCreator from "@server/commands/subscriptionCreator";
 import { createContext } from "@server/context";
 import { Comment, Document, Notification, User } from "@server/models";
@@ -10,7 +6,7 @@ import NotificationHelper from "@server/models/helpers/NotificationHelper";
 import { ProsemirrorHelper } from "@server/models/helpers/ProsemirrorHelper";
 import { sequelize } from "@server/storage/database";
 import { CommentEvent } from "@server/types";
-import { canUserAccessDocument } from "@server/utils/permissions";
+import { canUserAccessDocument } from "@server/utils/policies";
 import BaseTask, { TaskPriority } from "./BaseTask";
 
 export default class CommentCreatedNotificationsTask extends BaseTask<CommentEvent> {
@@ -38,7 +34,7 @@ export default class CommentCreatedNotificationsTask extends BaseTask<CommentEve
           transaction,
         }),
         documentId: document.id,
-        event: SubscriptionType.Document,
+        event: "documents.update",
         resubscribe: false,
       });
     });
@@ -85,21 +81,16 @@ export default class CommentCreatedNotificationsTask extends BaseTask<CommentEve
       )
     ).filter((recipient) => !userIdsMentioned.includes(recipient.id));
 
-    await sequelize.transaction(async (transaction) => {
-      for (const recipient of recipients) {
-        await Notification.create(
-          {
-            event: NotificationEventType.CreateComment,
-            userId: recipient.id,
-            actorId: comment.createdById,
-            teamId: document.teamId,
-            commentId: comment.id,
-            documentId: document.id,
-          },
-          { transaction }
-        );
-      }
-    });
+    for (const recipient of recipients) {
+      await Notification.create({
+        event: NotificationEventType.CreateComment,
+        userId: recipient.id,
+        actorId: comment.createdById,
+        teamId: document.teamId,
+        commentId: comment.id,
+        documentId: document.id,
+      });
+    }
   }
 
   public get options() {

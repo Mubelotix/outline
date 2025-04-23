@@ -13,7 +13,6 @@ import MenuIconWrapper from "./MenuIconWrapper";
 type Props = {
   id?: string;
   onClick?: (event: React.MouseEvent) => void | Promise<void>;
-  onPointerMove?: (event: React.MouseEvent) => void | Promise<void>;
   active?: boolean;
   selected?: boolean;
   disabled?: boolean;
@@ -32,7 +31,6 @@ type Props = {
 const MenuItem = (
   {
     onClick,
-    onPointerMove,
     children,
     active,
     selected,
@@ -92,7 +90,6 @@ const MenuItem = (
   return (
     <BaseMenuItem
       onClick={disabled ? undefined : onClick}
-      onPointerMove={disabled ? undefined : onPointerMove}
       disabled={disabled}
       hide={hide}
       {...rest}
@@ -161,9 +158,6 @@ export const MenuAnchorCSS = css<MenuAnchorProps>`
     &:focus-visible {
       color: ${props.theme.accentText};
       background: ${props.dangerous ? props.theme.danger : props.theme.accent};
-      outline-color: ${
-        props.dangerous ? props.theme.danger : props.theme.accent
-      };
       box-shadow: none;
       cursor: var(--pointer);
 

@@ -17,7 +17,6 @@ import {
   RateLimitExceededError,
   RequestError,
   ServiceUnavailableError,
-  UnprocessableEntityError,
   UpdateRequiredError,
 } from "./errors";
 
@@ -213,10 +212,6 @@ class ApiClient {
 
     if (response.status === 503) {
       throw new ServiceUnavailableError(error.message);
-    }
-
-    if (response.status === 422) {
-      throw new UnprocessableEntityError(error.message);
     }
 
     if (response.status === 429) {

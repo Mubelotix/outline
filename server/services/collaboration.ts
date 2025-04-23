@@ -12,7 +12,6 @@ import env from "@server/env";
 import Logger from "@server/logging/Logger";
 import ShutdownHelper, { ShutdownOrder } from "@server/utils/ShutdownHelper";
 import AuthenticationExtension from "../collaboration/AuthenticationExtension";
-import { EditorVersionExtension } from "../collaboration/EditorVersionExtension";
 import LoggerExtension from "../collaboration/LoggerExtension";
 import MetricsExtension from "../collaboration/MetricsExtension";
 import PersistenceExtension from "../collaboration/PersistenceExtension";
@@ -40,7 +39,6 @@ export default function init(
         banTime: 5,
       }),
       new ConnectionLimitExtension(),
-      new EditorVersionExtension(),
       new AuthenticationExtension(),
       new PersistenceExtension(),
       new ViewsExtension(),

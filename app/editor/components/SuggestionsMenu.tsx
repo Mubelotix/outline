@@ -645,11 +645,12 @@ function SuggestionsMenu<T extends MenuItem>(props: Props<T>) {
                     "section" in item ? item.section?.({ t }) : undefined;
 
                   const response = (
-                    <React.Fragment key={`${index}-${item.name}`}>
+                    <>
                       {currentHeading !== previousHeading && (
                         <Header key={currentHeading}>{currentHeading}</Header>
                       )}
                       <ListItem
+                        key={index}
                         onPointerMove={handlePointerMove}
                         onPointerDown={handlePointerDown}
                       >
@@ -658,7 +659,7 @@ function SuggestionsMenu<T extends MenuItem>(props: Props<T>) {
                           onClick: () => handleClickItem(item),
                         })}
                       </ListItem>
-                    </React.Fragment>
+                    </>
                   );
 
                   previousHeading = currentHeading;

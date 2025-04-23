@@ -4,9 +4,9 @@ import { EditorView } from "prosemirror-view";
 import * as React from "react";
 import Extension from "@shared/editor/lib/Extension";
 import parseDocumentSlug from "@shared/utils/parseDocumentSlug";
-import stores from "~/stores";
 import HoverPreview from "~/components/HoverPreview";
 import env from "~/env";
+import { client } from "~/utils/ApiClient";
 
 interface HoverPreviewsOptions {
   /** Delay before the target is considered "hovered" and callback is triggered. */
@@ -16,11 +16,11 @@ interface HoverPreviewsOptions {
 export default class HoverPreviews extends Extension {
   state: {
     activeLinkElement: HTMLElement | null;
-    unfurlId: string | null;
+    data: Record<string, any> | null;
     dataLoading: boolean;
   } = observable({
     activeLinkElement: null,
-    unfurlId: null,
+    data: null,
     dataLoading: false,
   });
 
@@ -62,25 +62,19 @@ export default class HoverPreviews extends Extension {
                     );
 
                     if (url) {
-                      const transformedUrl = url.startsWith("/")
-                        ? env.URL + url
-                        : url;
-
                       this.state.dataLoading = true;
-
-                      const unfurl = await stores.unfurls.fetchUnfurl({
-                        url: transformedUrl,
-                        documentId,
-                      });
-
-                      if (unfurl) {
+                      try {
+                        const data = await client.post("/urls.unfurl", {
+                          url: url.startsWith("/") ? env.URL + url : url,
+                          documentId,
+                        });
                         this.state.activeLinkElement = element;
-                        this.state.unfurlId = transformedUrl;
-                      } else {
+                        this.state.data = data;
+                      } catch (err) {
                         this.state.activeLinkElement = null;
+                      } finally {
+                        this.state.dataLoading = false;
                       }
-
-                      this.state.dataLoading = false;
                     }
                   }),
                   this.options.delay
@@ -107,11 +101,10 @@ export default class HoverPreviews extends Extension {
   widget = () => (
     <HoverPreview
       element={this.state.activeLinkElement}
-      unfurlId={this.state.unfurlId}
+      data={this.state.data}
       dataLoading={this.state.dataLoading}
       onClose={action(() => {
         this.state.activeLinkElement = null;
-        this.state.unfurlId = null;
       })}
     />
   );

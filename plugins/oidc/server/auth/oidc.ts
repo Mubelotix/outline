@@ -2,6 +2,7 @@ import passport from "@outlinewiki/koa-passport";
 import type { Context } from "koa";
 import Router from "koa-router";
 import get from "lodash/get";
+import { Strategy } from "passport-oauth2";
 import { slugifyDomain } from "@shared/utils/domains";
 import { parseEmail } from "@shared/utils/email";
 import accountProvisioner from "@server/commands/accountProvisioner";
@@ -20,10 +21,23 @@ import {
 } from "@server/utils/passport";
 import config from "../../plugin.json";
 import env from "../env";
-import { OIDCStrategy } from "./OIDCStrategy";
 
 const router = new Router();
 const scopes = env.OIDC_SCOPES.split(" ");
+
+const authorizationParams = Strategy.prototype.authorizationParams;
+Strategy.prototype.authorizationParams = function (options) {
+  return {
+    ...(options.originalQuery || {}),
+    ...(authorizationParams.bind(this)(options) || {}),
+  };
+};
+
+const authenticate = Strategy.prototype.authenticate;
+Strategy.prototype.authenticate = function (req, options) {
+  options.originalQuery = req.query;
+  authenticate.bind(this)(req, options);
+};
 
 if (
   env.OIDC_CLIENT_ID &&
@@ -34,7 +48,7 @@ if (
 ) {
   passport.use(
     config.id,
-    new OIDCStrategy(
+    new Strategy(
       {
         authorizationURL: env.OIDC_AUTH_URI,
         tokenURL: env.OIDC_TOKEN_URI,

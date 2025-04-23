@@ -39,10 +39,7 @@ export function LoginDialog() {
         maxLength={255}
         autoComplete="off"
         placeholder={t("subdomain")}
-        {...register("subdomain", {
-          required: true,
-          pattern: /^[a-z\d-]{1,63}$/,
-        })}
+        {...register("subdomain", { required: true, pattern: /^[a-z\d-]+$/ })}
       >
         <Domain>.getoutline.com</Domain>
       </Input>

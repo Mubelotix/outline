@@ -19,11 +19,9 @@ export default class Suggestion extends Extension {
     super(options);
 
     this.openRegex = new RegExp(
-      `(?:^|\\s|\\()${escapeRegExp(
-        this.options.trigger
-      )}(${`[\\p{L}\/\\p{M}\\d${
+      `(?:^|\\s|\\()${escapeRegExp(this.options.trigger)}(${`[\\p{L}\\p{M}\\d${
         this.options.allowSpaces ? "\\s{1}" : ""
-      }\\.\\-–_]+`})${this.options.requireSearchTerm ? "" : "?"}$`,
+      }\\.]+`})${this.options.requireSearchTerm ? "" : "?"}$`,
       "u"
     );
   }

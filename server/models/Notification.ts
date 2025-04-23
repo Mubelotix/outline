@@ -177,10 +177,6 @@ class Notification extends Model<
   @Column(DataType.UUID)
   teamId: string;
 
-  @AllowNull
-  @Column(DataType.UUID)
-  membershipId: string;
-
   @AfterCreate
   static async createEvent(
     model: Notification,
@@ -195,7 +191,6 @@ class Notification extends Model<
       documentId: model.documentId,
       collectionId: model.collectionId,
       actorId: model.actorId,
-      membershipId: model.membershipId,
     };
 
     if (options.transaction) {

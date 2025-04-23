@@ -1,6 +1,5 @@
 import { JSDOM } from "jsdom";
 import { Node } from "prosemirror-model";
-import ukkonen from "ukkonen";
 import { updateYFragment, yDocToProsemirrorJSON } from "y-prosemirror";
 import * as Y from "yjs";
 import textBetween from "@shared/editor/lib/textBetween";
@@ -147,15 +146,10 @@ export class DocumentHelper {
    * Returns the document as Markdown. This is a lossy conversion and should only be used for export.
    *
    * @param document The document or revision to convert
-   * @param options Options for the conversion
    * @returns The document title and content as a Markdown string
    */
   static toMarkdown(
-    document: Document | Revision | Collection | ProsemirrorData,
-    options?: {
-      /** Whether to include the document title (default: true) */
-      includeTitle?: boolean;
-    }
+    document: Document | Revision | Collection | ProsemirrorData
   ) {
     const text = serializer
       .serialize(DocumentHelper.toProsemirror(document))
@@ -170,10 +164,7 @@ export class DocumentHelper {
       return text;
     }
 
-    if (
-      (document instanceof Document || document instanceof Revision) &&
-      options?.includeTitle !== false
-    ) {
+    if (document instanceof Document || document instanceof Revision) {
       const iconType = determineIconType(document.icon);
 
       const title = `${iconType === IconType.Emoji ? document.icon + " " : ""}${
@@ -487,26 +478,25 @@ export class DocumentHelper {
   }
 
   /**
-   * Compares two documents or revisions and returns whether the text differs by more than the threshold.
+   * Compares two documents and returns true if the text content is equal. This does not take into account
+   * changes to other properties such as table column widths, other visual settings.
    *
    * @param document The document to compare
    * @param other The other document to compare
-   * @param threshold The threshold for the change in characters
-   * @returns True if the text differs by more than the threshold
+   * @returns True if the text content is equal
    */
-  public static isChangeOverThreshold(
+  public static isTextContentEqual(
     before: Document | Revision | null,
-    after: Document | Revision | null,
-    threshold: number
+    after: Document | Revision | null
   ) {
     if (!before || !after) {
       return false;
     }
 
-    const first = before.title + this.toPlainText(before);
-    const second = after.title + this.toPlainText(after);
-    const distance = ukkonen(first, second, threshold + 1);
-    return distance > threshold;
+    return (
+      before.title === after.title &&
+      this.toMarkdown(before) === this.toMarkdown(after)
+    );
   }
 
   private static textSerializers = getTextSerializers(schema);

@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default class CleanupExpiredFileOperationsTask extends BaseTask<Props> {
-  static cron = TaskSchedule.Hour;
+  static cron = TaskSchedule.Daily;
 
   public async perform({ limit }: Props) {
     Logger.info("task", `Expiring file operations older than 15 days…`);

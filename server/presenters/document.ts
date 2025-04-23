@@ -42,7 +42,7 @@ async function presentDocument(
 
   const text =
     !asData || options?.includeText
-      ? DocumentHelper.toMarkdown(data, { includeTitle: false })
+      ? document.text || DocumentHelper.toMarkdown(data)
       : undefined;
 
   const res: Record<string, any> = {

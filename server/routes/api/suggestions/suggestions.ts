@@ -23,7 +23,7 @@ router.post(
     const { offset, limit } = ctx.state.pagination;
     const actor = ctx.state.auth.user;
 
-    const [documents, users, collections] = await Promise.all([
+    const [documents, users] = await Promise.all([
       SearchHelper.searchTitlesForUser(actor, {
         query,
         offset,
@@ -53,7 +53,6 @@ router.post(
         offset,
         limit,
       }),
-      SearchHelper.searchCollectionsForUser(actor, { query, offset, limit }),
     ]);
 
     ctx.body = {
@@ -68,7 +67,6 @@ router.post(
             includeDetails: !!can(actor, "readDetails", user),
           })
         ),
-        collections,
       },
     };
   }

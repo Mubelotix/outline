@@ -1,5 +1,5 @@
 import Router from "koa-router";
-import { Transaction, WhereOptions } from "sequelize";
+import { Transaction } from "sequelize";
 import { QueryNotices } from "@shared/types";
 import subscriptionCreator from "@server/commands/subscriptionCreator";
 import { createContext } from "@server/context";
@@ -8,7 +8,7 @@ import auth from "@server/middlewares/authentication";
 import { rateLimiter } from "@server/middlewares/rateLimiter";
 import { transaction } from "@server/middlewares/transaction";
 import validate from "@server/middlewares/validate";
-import { Subscription, Document, User, Collection } from "@server/models";
+import { Subscription, Document, User } from "@server/models";
 import SubscriptionHelper from "@server/models/helpers/SubscriptionHelper";
 import { authorize } from "@server/policies";
 import { presentSubscription } from "@server/presenters";
@@ -26,32 +26,18 @@ router.post(
   validate(T.SubscriptionsListSchema),
   async (ctx: APIContext<T.SubscriptionsListReq>) => {
     const { user } = ctx.state.auth;
-    const { event, collectionId, documentId } = ctx.input.body;
+    const { documentId, event } = ctx.input.body;
 
-    const where: WhereOptions<Subscription> = {
-      userId: user.id,
-      event,
-    };
+    const document = await Document.findByPk(documentId, { userId: user.id });
 
-    if (collectionId) {
-      const collection = await Collection.scope({
-        method: ["withMembership", user.id],
-      }).findByPk(collectionId);
-      authorize(user, "read", collection);
-
-      where.collectionId = collectionId;
-    } else {
-      // documentId will be available here
-      const document = await Document.findByPk(documentId!, {
-        userId: user.id,
-      });
-      authorize(user, "read", document);
-
-      where.documentId = documentId;
-    }
+    authorize(user, "read", document);
 
     const subscriptions = await Subscription.findAll({
-      where,
+      where: {
+        documentId: document.id,
+        userId: user.id,
+        event,
+      },
       order: [["createdAt", "DESC"]],
       offset: ctx.state.pagination.offset,
       limit: ctx.state.pagination.limit,
@@ -70,33 +56,19 @@ router.post(
   validate(T.SubscriptionsInfoSchema),
   async (ctx: APIContext<T.SubscriptionsInfoReq>) => {
     const { user } = ctx.state.auth;
-    const { event, collectionId, documentId } = ctx.input.body;
+    const { documentId, event } = ctx.input.body;
 
-    const where: WhereOptions<Subscription> = {
-      userId: user.id,
-      event,
-    };
+    const document = await Document.findByPk(documentId, { userId: user.id });
 
-    if (collectionId) {
-      const collection = await Collection.scope({
-        method: ["withMembership", user.id],
-      }).findByPk(collectionId);
-      authorize(user, "read", collection);
-
-      where.collectionId = collectionId;
-    } else {
-      // documentId will be available here
-      const document = await Document.findByPk(documentId!, {
-        userId: user.id,
-      });
-      authorize(user, "read", document);
-
-      where.documentId = documentId;
-    }
+    authorize(user, "read", document);
 
     // There can be only one subscription with these props.
     const subscription = await Subscription.findOne({
-      where,
+      where: {
+        userId: user.id,
+        documentId: document.id,
+        event,
+      },
       rejectOnEmpty: true,
     });
 
@@ -112,28 +84,20 @@ router.post(
   validate(T.SubscriptionsCreateSchema),
   transaction(),
   async (ctx: APIContext<T.SubscriptionsCreateReq>) => {
+    const { transaction } = ctx.state;
     const { user } = ctx.state.auth;
-    const { event, collectionId, documentId } = ctx.input.body;
+    const { documentId, event } = ctx.input.body;
 
-    if (collectionId) {
-      const collection = await Collection.scope({
-        method: ["withMembership", user.id],
-      }).findByPk(collectionId);
+    const document = await Document.findByPk(documentId, {
+      userId: user.id,
+      transaction,
+    });
 
-      authorize(user, "subscribe", collection);
-    } else {
-      // documentId will be available here
-      const document = await Document.findByPk(documentId!, {
-        userId: user.id,
-      });
-
-      authorize(user, "subscribe", document);
-    }
+    authorize(user, "subscribe", document);
 
     const subscription = await subscriptionCreator({
       ctx,
-      documentId,
-      collectionId,
+      documentId: document.id,
       event,
     });
 
@@ -150,13 +114,7 @@ router.get(
   transaction(),
   async (ctx: APIContext<T.SubscriptionsDeleteTokenReq>) => {
     const { transaction } = ctx.state;
-    const { follow, userId, documentId, token } = ctx.input.query;
-
-    // The link in the email does not include the follow query param, this
-    // is to help prevent anti-virus, and email clients from pre-fetching the link
-    if (!follow) {
-      return ctx.redirectOnClient(ctx.request.href + "&follow=true");
-    }
+    const { userId, documentId, token } = ctx.input.query;
 
     const unsubscribeToken = SubscriptionHelper.unsubscribeToken(
       userId,
@@ -168,21 +126,14 @@ router.get(
       return;
     }
 
-    const [documentSubscription, document, user] = await Promise.all([
+    const [subscription, user] = await Promise.all([
       Subscription.findOne({
         where: {
           userId,
           documentId,
         },
         lock: Transaction.LOCK.UPDATE,
-        transaction,
-      }),
-      Document.unscoped().findOne({
-        attributes: ["collectionId"],
-        where: {
-          id: documentId,
-        },
-        paranoid: false,
+        rejectOnEmpty: true,
         transaction,
       }),
       User.scope("withTeam").findByPk(userId, {
@@ -191,41 +142,18 @@ router.get(
       }),
     ]);
 
-    const context = createContext({
-      user,
-      ip: ctx.request.ip,
-      transaction,
-    });
+    authorize(user, "delete", subscription);
 
-    const collectionSubscription = document?.collectionId
-      ? await Subscription.findOne({
-          where: {
-            userId,
-            collectionId: document.collectionId,
-          },
-          lock: Transaction.LOCK.UPDATE,
-          transaction,
-        })
-      : undefined;
-
-    if (collectionSubscription) {
-      authorize(user, "delete", collectionSubscription);
-      await collectionSubscription.destroyWithCtx(context);
-    }
-
-    if (documentSubscription) {
-      authorize(user, "delete", documentSubscription);
-      await documentSubscription.destroyWithCtx(context);
-    }
+    await subscription.destroyWithCtx(
+      createContext({
+        user,
+        ip: ctx.request.ip,
+        transaction,
+      })
+    );
 
     ctx.redirect(
-      `${user.team.url}/home?notice=${
-        collectionSubscription
-          ? QueryNotices.UnsubscribeCollection
-          : documentSubscription
-          ? QueryNotices.UnsubscribeDocument
-          : ""
-      }`
+      `${user.team.url}/home?notice=${QueryNotices.UnsubscribeDocument}`
     );
   }
 );

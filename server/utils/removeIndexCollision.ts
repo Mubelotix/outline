@@ -1,5 +1,5 @@
 import fractionalIndex from "fractional-index";
-import { Sequelize, type FindOptions } from "sequelize";
+import { Op, Sequelize, type FindOptions } from "sequelize";
 import Collection from "@server/models/Collection";
 
 /**
@@ -31,7 +31,9 @@ export default async function removeIndexCollision(
     where: {
       teamId,
       deletedAt: null,
-      index: Sequelize.literal(`"collection"."index" collate "C" > '${index}'`),
+      index: {
+        [Op.gt]: index,
+      },
     },
     attributes: ["id", "index"],
     limit: 1,

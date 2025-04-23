@@ -15,8 +15,6 @@ requestInfoDefaultTitles:
 
 requestInfoLabelToAdd: more information needed
 
-requestInfoUserstoExclude:
-  - tommoor
 
 # Configuration for new-pr-welcome - https://github.com/behaviorbot/new-pr-welcome
 

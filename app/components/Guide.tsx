@@ -73,7 +73,7 @@ const Backdrop = styled.div`
   right: 0;
   bottom: 0;
   background-color: ${s("backdrop")} !important;
-  z-index: ${depths.overlay};
+  z-index: ${depths.modalOverlay};
   transition: opacity 200ms ease-in-out;
   opacity: 0;
 

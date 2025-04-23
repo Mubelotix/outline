@@ -4,11 +4,9 @@ import BaseProcessor from "./BaseProcessor";
 
 const processors: Record<string, typeof BaseProcessor> = {};
 
-const AbstractProcessors = ["ImportsProcessor"];
-
 requireDirectory<{ default: typeof BaseProcessor }>(__dirname).forEach(
   ([module, id]) => {
-    if (id === "index" || AbstractProcessors.includes(id)) {
+    if (id === "index") {
       return;
     }
     processors[id] = module.default;

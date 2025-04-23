@@ -21,13 +21,13 @@ function CollectionFilter(props: Props) {
     const collectionOptions = collections.orderedData.map((collection) => ({
       key: collection.id,
       label: collection.name,
-      icon: <CollectionIcon collection={collection} size={24} />,
+      icon: <CollectionIcon collection={collection} size={18} />,
     }));
     return [
       {
         key: "",
         label: t("Any collection"),
-        icon: <SVGCollectionIcon size={24} />,
+        icon: <SVGCollectionIcon size={18} />,
       },
       ...collectionOptions,
     ];
@@ -39,6 +39,7 @@ function CollectionFilter(props: Props) {
       selectedKeys={[collectionId]}
       onSelect={onSelect}
       defaultLabel={t("Any collection")}
+      selectedPrefix={`${t("Collection")}:`}
       showFilter
     />
   );

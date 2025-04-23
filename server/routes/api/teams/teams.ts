@@ -19,6 +19,7 @@ import { safeEqual } from "@server/utils/crypto";
 import * as T from "./schema";
 
 const router = new Router();
+const emailEnabled = !!(env.SMTP_HOST || env.isDevelopment);
 
 const handleTeamUpdate = async (ctx: APIContext<T.TeamsUpdateSchemaReq>) => {
   const { transaction } = ctx.state;
@@ -67,7 +68,7 @@ router.post(
   rateLimiter(RateLimiterStrategy.FivePerHour),
   auth(),
   async (ctx: APIContext) => {
-    if (!env.EMAIL_ENABLED) {
+    if (!emailEnabled) {
       throw ValidationError("Email support is not setup for this instance");
     }
 
@@ -100,7 +101,7 @@ router.post(
 
     authorize(user, "delete", team);
 
-    if (env.EMAIL_ENABLED) {
+    if (emailEnabled) {
       const deleteConfirmationCode = team.getDeleteConfirmationCode(user);
 
       if (!safeEqual(code, deleteConfirmationCode)) {

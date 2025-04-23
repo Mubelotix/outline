@@ -28,10 +28,9 @@ export function getCellAttrs(dom: HTMLElement | string): Attrs {
   const widthAttr = dom.getAttribute("data-colwidth");
   const widths =
     widthAttr && /^\d+(,\d+)*$/.test(widthAttr)
-      ? widthAttr.split(",").map(Number)
+      ? widthAttr.split(",").map((s) => Number(s))
       : null;
   const colspan = Number(dom.getAttribute("colspan") || 1);
-
   return {
     colspan,
     rowspan: Number(dom.getAttribute("rowspan") || 1),
@@ -64,11 +63,10 @@ export function setCellAttrs(node: Node): Attrs {
   }
   if (node.attrs.colwidth) {
     if (isBrowser) {
-      attrs["data-colwidth"] = node.attrs.colwidth.map(parseInt).join(",");
+      attrs["data-colwidth"] = node.attrs.colwidth.join(",");
     } else {
       attrs.style =
-        (attrs.style ?? "") +
-        `min-width: ${parseInt(node.attrs.colwidth[0])}px;`;
+        (attrs.style ?? "") + `min-width: ${node.attrs.colwidth}px;`;
     }
   }
 

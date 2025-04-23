@@ -10,8 +10,8 @@ import {
 import { Decoration, DecorationSet } from "prosemirror-view";
 import * as React from "react";
 import { v4 } from "uuid";
+import { LANGUAGES } from "@shared/editor/extensions/Prism";
 import Extension, { WidgetProps } from "@shared/editor/lib/Extension";
-import { codeLanguages } from "@shared/editor/lib/code";
 import isMarkdown from "@shared/editor/lib/isMarkdown";
 import normalizePastedMarkdown from "@shared/editor/lib/markdown/normalize";
 import { isRemoteTransaction } from "@shared/editor/lib/multiplayer";
@@ -20,11 +20,56 @@ import { isInCode } from "@shared/editor/queries/isInCode";
 import { MenuItem } from "@shared/editor/types";
 import { IconType, MentionType } from "@shared/types";
 import { determineIconType } from "@shared/utils/icon";
-import parseCollectionSlug from "@shared/utils/parseCollectionSlug";
 import parseDocumentSlug from "@shared/utils/parseDocumentSlug";
-import { isCollectionUrl, isDocumentUrl, isUrl } from "@shared/utils/urls";
+import { isDocumentUrl, isUrl } from "@shared/utils/urls";
 import stores from "~/stores";
-import { PasteMenu } from "../components/PasteMenu";
+import PasteMenu from "../components/PasteMenu";
+
+/**
+ * Checks if the HTML string is likely coming from Dropbox Paper.
+ *
+ * @param html The HTML string to check.
+ * @returns True if the HTML string is likely coming from Dropbox Paper.
+ */
+function isDropboxPaper(html: string): boolean {
+  return html?.includes("usually-unique-id");
+}
+
+function sliceSingleNode(slice: Slice) {
+  return slice.openStart === 0 &&
+    slice.openEnd === 0 &&
+    slice.content.childCount === 1
+    ? slice.content.firstChild
+    : null;
+}
+
+/**
+ * Parses the text contents of an HTML string and returns the src of the first
+ * iframe if it exists.
+ *
+ * @param text The HTML string to parse.
+ * @returns The src of the first iframe if it exists, or undefined.
+ */
+function parseSingleIframeSrc(html: string) {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    if (
+      doc.body.children.length === 1 &&
+      doc.body.firstElementChild?.tagName === "IFRAME"
+    ) {
+      const iframe = doc.body.firstElementChild;
+      const src = iframe.getAttribute("src");
+      if (src) {
+        return src;
+      }
+    }
+  } catch (e) {
+    // Ignore the million ways parsing could fail.
+  }
+  return undefined;
+}
 
 export default class PasteHandler extends Extension {
   state: {
@@ -88,7 +133,7 @@ export default class PasteHandler extends Extension {
 
             // If the users selection is currently in a code block then paste
             // as plain text, ignore all formatting and HTML content.
-            if (isInCode(state, { inclusive: true })) {
+            if (isInCode(state)) {
               event.preventDefault();
               view.dispatch(state.tr.insertText(text));
               return true;
@@ -122,8 +167,6 @@ export default class PasteHandler extends Extension {
                 }
 
                 // Is the link a link to a document? If so, we can grab the title and insert it.
-                const containsHash = text.includes("#");
-
                 if (isDocumentUrl(text)) {
                   const slug = parseDocumentSlug(text);
 
@@ -135,7 +178,7 @@ export default class PasteHandler extends Extension {
                           return;
                         }
                         if (document) {
-                          if (state.schema.nodes.mention && !containsHash) {
+                          if (state.schema.nodes.mention) {
                             view.dispatch(
                               view.state.tr.replaceWith(
                                 state.selection.from,
@@ -169,51 +212,6 @@ export default class PasteHandler extends Extension {
                         this.insertLink(text);
                       });
                   }
-                } else if (isCollectionUrl(text)) {
-                  const slug = parseCollectionSlug(text);
-
-                  if (slug) {
-                    stores.collections
-                      .fetch(slug)
-                      .then((collection) => {
-                        if (view.isDestroyed) {
-                          return;
-                        }
-                        if (collection) {
-                          if (state.schema.nodes.mention && !containsHash) {
-                            view.dispatch(
-                              view.state.tr.replaceWith(
-                                state.selection.from,
-                                state.selection.to,
-                                state.schema.nodes.mention.create({
-                                  type: MentionType.Collection,
-                                  modelId: collection.id,
-                                  label: collection.name,
-                                  id: v4(),
-                                })
-                              )
-                            );
-                          } else {
-                            const { hash } = new URL(text);
-                            const hasEmoji =
-                              determineIconType(collection.icon) ===
-                              IconType.Emoji;
-
-                            const title = `${
-                              hasEmoji ? collection.icon + " " : ""
-                            }${collection.name}`;
-
-                            this.insertLink(`${collection.path}${hash}`, title);
-                          }
-                        }
-                      })
-                      .catch(() => {
-                        if (view.isDestroyed) {
-                          return;
-                        }
-                        this.insertLink(text);
-                      });
-                  }
                 } else {
                   this.insertLink(text);
                 }
@@ -228,7 +226,7 @@ export default class PasteHandler extends Extension {
                     state.tr
                       .replaceSelectionWith(
                         state.schema.nodes.code_block.create({
-                          language: Object.keys(codeLanguages).includes(
+                          language: Object.keys(LANGUAGES).includes(
                             vscodeMeta.mode
                           )
                             ? vscodeMeta.mode
@@ -263,12 +261,9 @@ export default class PasteHandler extends Extension {
             // If the text on the clipboard looks like Markdown OR there is no
             // html on the clipboard then try to parse content as Markdown
             if (
-              (isMarkdown(text) &&
-                !isDropboxPaper(html) &&
-                !isContainingImage(html)) ||
+              (isMarkdown(text) && !isDropboxPaper(html)) ||
               pasteCodeLanguage === "markdown" ||
-              this.shiftKey ||
-              !html
+              this.shiftKey
             ) {
               event.preventDefault();
 
@@ -415,21 +410,6 @@ export default class PasteHandler extends Extension {
     });
   };
 
-  private insertMention = () => {
-    const { view } = this.editor;
-    const { state } = view;
-    const result = this.findPlaceholder(state, this.state.pastedText);
-
-    // Remove just the placeholder here.
-    // Mention node will be created by SuggestionsMenu.
-    if (result) {
-      const tr = state.tr.deleteRange(result[0], result[1]);
-      view.dispatch(
-        tr.setSelection(TextSelection.near(tr.doc.resolve(result[0])))
-      );
-    }
-  };
-
   private removePlaceholder = () => {
     const { view } = this.editor;
     const { state } = view;
@@ -465,11 +445,6 @@ export default class PasteHandler extends Extension {
         this.insertEmbed();
         break;
       }
-      case "mention": {
-        this.hidePasteMenu();
-        this.insertMention();
-        break;
-      }
       default:
         break;
     }
@@ -499,60 +474,4 @@ export default class PasteHandler extends Extension {
       onSelect={this.handleSelect}
     />
   );
-}
-
-/**
- * Checks if the HTML string is likely coming from Dropbox Paper.
- *
- * @param html The HTML string to check.
- * @returns True if the HTML string is likely coming from Dropbox Paper.
- */
-function isDropboxPaper(html: string): boolean {
-  return html?.includes("usually-unique-id");
-}
-
-/**
- * Checks if the HTML string contains an image.
- *
- * @param html The HTML string to check.
- * @returns True if the HTML string contains an image.
- */
-function isContainingImage(html: string): boolean {
-  return html?.includes("<img");
-}
-
-function sliceSingleNode(slice: Slice) {
-  return slice.openStart === 0 &&
-    slice.openEnd === 0 &&
-    slice.content.childCount === 1
-    ? slice.content.firstChild
-    : null;
-}
-
-/**
- * Parses the text contents of an HTML string and returns the src of the first
- * iframe if it exists.
- *
- * @param text The HTML string to parse.
- * @returns The src of the first iframe if it exists, or undefined.
- */
-function parseSingleIframeSrc(html: string) {
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-
-    if (
-      doc.body.children.length === 1 &&
-      doc.body.firstElementChild?.tagName === "IFRAME"
-    ) {
-      const iframe = doc.body.firstElementChild;
-      const src = iframe.getAttribute("src");
-      if (src) {
-        return src;
-      }
-    }
-  } catch (e) {
-    // Ignore the million ways parsing could fail.
-  }
-  return undefined;
 }

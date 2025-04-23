@@ -27,7 +27,7 @@ function RecentSearchListItem({ searchQuery }: Props) {
 
   return (
     <RecentSearch
-      to={searchPath({ query: searchQuery.query })}
+      to={searchPath(searchQuery.query)}
       ref={ref}
       {...rovingTabIndex}
     >
@@ -51,9 +51,7 @@ const RemoveButton = styled(NudeButton)`
   opacity: 0;
   color: ${s("textTertiary")};
 
-  &:focus,
-  &:${hover} {
-    opacity: 1;
+  &:hover {
     color: ${s("text")};
   }
 `;
@@ -63,11 +61,17 @@ const RecentSearch = styled(Link)`
   justify-content: space-between;
   color: ${s("textSecondary")};
   cursor: var(--pointer);
-  padding: 1px 8px;
+  padding: 1px 4px;
   border-radius: 4px;
-  line-height: 24px;
+  position: relative;
   font-size: 14px;
-  margin: 0 -8px;
+
+  &:before {
+    content: "·";
+    color: ${s("textTertiary")};
+    position: absolute;
+    left: -8px;
+  }
 
   &:focus-visible {
     outline: none;

@@ -47,7 +47,9 @@ class TestServer {
 
   close() {
     this.listener = null;
-    this.server.closeAllConnections();
+    return new Promise<void>((resolve, reject) => {
+      this.server.close((err) => (err ? reject(err) : resolve()));
+    });
   }
 
   delete(path: string, options?: any) {

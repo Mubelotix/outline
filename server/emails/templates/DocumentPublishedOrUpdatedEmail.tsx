@@ -86,8 +86,7 @@ export default class DocumentPublishedOrUpdatedEmail extends BaseEmail<
           }
           return;
         },
-        30,
-        10000
+        30
       );
     }
 

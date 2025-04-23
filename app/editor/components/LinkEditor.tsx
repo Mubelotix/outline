@@ -1,24 +1,15 @@
-import { observer } from "mobx-react";
-import { ArrowIcon, CloseIcon, DocumentIcon, OpenIcon } from "outline-icons";
+import { ArrowIcon, CloseIcon, OpenIcon } from "outline-icons";
 import { Mark } from "prosemirror-model";
 import { Selection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import * as React from "react";
-import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import styled from "styled-components";
-import Icon from "@shared/components/Icon";
-import { hideScrollbars, s } from "@shared/styles";
 import { isInternalUrl, sanitizeUrl } from "@shared/utils/urls";
 import Flex from "~/components/Flex";
-import { ResizingHeightContainer } from "~/components/ResizingHeightContainer";
-import Scrollable from "~/components/Scrollable";
 import { Dictionary } from "~/hooks/useDictionary";
-import useRequest from "~/hooks/useRequest";
-import useStores from "~/hooks/useStores";
-import { client } from "~/utils/ApiClient";
+import Logger from "~/utils/Logger";
 import Input from "./Input";
-import SuggestionsMenuItem from "./SuggestionsMenuItem";
 import ToolbarButton from "./ToolbarButton";
 import Tooltip from "./Tooltip";
 
@@ -41,163 +32,142 @@ type Props = {
   view: EditorView;
 };
 
-const LinkEditor: React.FC<Props> = ({
-  mark,
-  from,
-  to,
-  dictionary,
-  onRemoveLink,
-  onSelectLink,
-  onClickLink,
-  view,
-}) => {
-  const getHref = () => sanitizeUrl(mark?.attrs.href) ?? "";
-  const initialValue = getHref();
-  const initialSelectionLength = to - from;
-  const inputRef = useRef<HTMLInputElement>(null);
-  const discardRef = useRef(false);
-  const [query, setQuery] = useState(initialValue);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const { documents } = useStores();
+type State = {
+  value: string;
+  previousValue: string;
+};
 
-  const trimmedQuery = query.trim();
-  const results = trimmedQuery
-    ? documents.findByQuery(trimmedQuery, { maxResults: 25 })
-    : [];
+class LinkEditor extends React.Component<Props, State> {
+  discardInputValue = false;
+  initialValue = this.href;
+  initialSelectionLength = this.props.to - this.props.from;
+  inputRef = React.createRef<HTMLInputElement>();
 
-  const { request } = useRequest(
-    React.useCallback(async () => {
-      const res = await client.post("/suggestions.mention", { query });
-      res.data.documents.map(documents.add);
-    }, [query])
-  );
+  state: State = {
+    value: this.href,
+    previousValue: "",
+  };
 
-  useEffect(() => {
-    if (trimmedQuery) {
-      void request();
+  get href(): string {
+    return sanitizeUrl(this.props.mark?.attrs.href) ?? "";
+  }
+
+  componentDidMount(): void {
+    window.addEventListener("keydown", this.handleGlobalKeyDown);
+  }
+
+  componentWillUnmount = () => {
+    window.removeEventListener("keydown", this.handleGlobalKeyDown);
+
+    // If we discarded the changes then nothing to do
+    if (this.discardInputValue) {
+      return;
     }
-  }, [trimmedQuery, request]);
 
-  useEffect(() => {
-    const handleGlobalKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "k" && event.metaKey) {
-        inputRef.current?.select();
-      }
-    };
+    // If the link is the same as it was when the editor opened, nothing to do
+    if (this.state.value === this.initialValue) {
+      return;
+    }
 
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleGlobalKeyDown);
+    // If the link is totally empty or only spaces then remove the mark
+    const href = (this.state.value || "").trim();
+    if (!href) {
+      return this.handleRemoveLink();
+    }
 
-      // If we discarded the changes then nothing to do
-      if (discardRef.current) {
-        return;
-      }
+    this.save(href, href);
+  };
 
-      // If the link is the same as it was when the editor opened, nothing to do
-      if (trimmedQuery === initialValue) {
-        return;
-      }
+  handleGlobalKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "k" && event.metaKey) {
+      this.inputRef.current?.select();
+    }
+  };
 
-      // If the link is totally empty or only spaces then remove the mark
-      if (!trimmedQuery) {
-        return handleRemoveLink();
-      }
-
-      save(trimmedQuery, trimmedQuery);
-    };
-  }, [trimmedQuery, initialValue]);
-
-  const save = (href: string, title?: string) => {
+  save = (href: string, title?: string): void => {
     href = href.trim();
 
     if (href.length === 0) {
       return;
     }
 
-    discardRef.current = true;
+    this.discardInputValue = true;
+    const { from, to } = this.props;
     href = sanitizeUrl(href) ?? "";
 
-    onSelectLink({ href, title, from, to });
+    this.props.onSelectLink({ href, title, from, to });
   };
 
-  const moveSelectionToEnd = () => {
-    const { state, dispatch } = view;
-    const nextSelection = Selection.findFrom(state.tr.doc.resolve(to), 1, true);
-    if (nextSelection) {
-      dispatch(state.tr.setSelection(nextSelection));
-    }
-    view.focus();
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent) => {
+  handleKeyDown = (event: React.KeyboardEvent): void => {
     switch (event.key) {
-      case "ArrowDown": {
-        event.preventDefault();
-        const maxIndex = results.length - 1;
-        setSelectedIndex((current) => (current >= maxIndex ? 0 : current + 1));
-        return;
-      }
-      case "ArrowUp": {
-        event.preventDefault();
-        const maxIndex = results.length - 1;
-        setSelectedIndex((current) => (current <= 0 ? maxIndex : current - 1));
-        return;
-      }
       case "Enter": {
         event.preventDefault();
+        const { value } = this.state;
 
-        if (selectedIndex >= 0 && results[selectedIndex]) {
-          const selectedDoc = results[selectedIndex];
-          const href = selectedDoc.url;
-          save(href, selectedDoc.title);
-        } else {
-          save(trimmedQuery, trimmedQuery);
+        this.save(value, value);
+
+        if (this.initialSelectionLength) {
+          this.moveSelectionToEnd();
         }
 
-        if (initialSelectionLength) {
-          moveSelectionToEnd();
-        }
         return;
       }
+
       case "Escape": {
         event.preventDefault();
 
-        if (initialValue) {
-          setQuery(initialValue);
-          moveSelectionToEnd();
+        if (this.initialValue) {
+          this.setState({ value: this.initialValue }, this.moveSelectionToEnd);
         } else {
-          handleRemoveLink();
+          this.handleRemoveLink();
         }
         return;
       }
     }
   };
 
-  const handleSearch = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = event.target.value;
-    setQuery(newValue);
-    setSelectedIndex(-1);
-  };
+  handleSearch = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
+    const value = event.target.value;
 
-  const handlePaste = () => {
-    setTimeout(() => save(query, query), 0);
-  };
+    this.setState({
+      value,
+    });
 
-  const handleOpenLink = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
+    const trimmedValue = value.trim();
 
-    try {
-      onClickLink(getHref(), event);
-    } catch (err) {
-      toast.error(dictionary.openLinkError);
+    if (trimmedValue) {
+      try {
+        this.setState({
+          previousValue: trimmedValue,
+        });
+      } catch (err) {
+        Logger.error("Error searching for link", err);
+      }
     }
   };
 
-  const handleRemoveLink = () => {
-    discardRef.current = true;
+  handlePaste = (): void => {
+    setTimeout(() => this.save(this.state.value, this.state.value), 0);
+  };
 
-    const { state, dispatch } = view;
+  handleOpenLink = (event: React.MouseEvent<HTMLButtonElement>): void => {
+    event.preventDefault();
+
+    try {
+      this.props.onClickLink(this.href, event);
+    } catch (err) {
+      toast.error(this.props.dictionary.openLinkError);
+    }
+  };
+
+  handleRemoveLink = (): void => {
+    this.discardInputValue = true;
+
+    const { from, to, mark, view, onRemoveLink } = this.props;
+    const { state, dispatch } = this.props.view;
+
     if (mark) {
       dispatch(state.tr.removeMark(from, to, mark));
     }
@@ -206,102 +176,57 @@ const LinkEditor: React.FC<Props> = ({
     view.focus();
   };
 
-  const isInternal = isInternalUrl(query);
-  const hasResults = !!results.length;
+  moveSelectionToEnd = () => {
+    const { to, view } = this.props;
+    const { state, dispatch } = view;
+    const nextSelection = Selection.findFrom(state.tr.doc.resolve(to), 1, true);
+    if (nextSelection) {
+      dispatch(state.tr.setSelection(nextSelection));
+    }
+    view.focus();
+  };
 
-  return (
-    <>
+  render() {
+    const { view, dictionary } = this.props;
+    const { value } = this.state;
+    const isInternal = isInternalUrl(value);
+
+    return (
       <Wrapper>
         <Input
-          ref={inputRef}
-          value={query}
-          placeholder={dictionary.searchOrPasteLink}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onChange={handleSearch}
-          onFocus={handleSearch}
-          autoFocus={getHref() === ""}
+          ref={this.inputRef}
+          value={value}
+          placeholder={dictionary.enterLink}
+          onKeyDown={this.handleKeyDown}
+          onPaste={this.handlePaste}
+          onChange={this.handleSearch}
+          onFocus={this.handleSearch}
+          autoFocus={this.href === ""}
           readOnly={!view.editable}
         />
+
         <Tooltip
           content={isInternal ? dictionary.goToLink : dictionary.openLink}
         >
-          <ToolbarButton onClick={handleOpenLink} disabled={!query}>
+          <ToolbarButton onClick={this.handleOpenLink} disabled={!value}>
             {isInternal ? <ArrowIcon /> : <OpenIcon />}
           </ToolbarButton>
         </Tooltip>
         {view.editable && (
           <Tooltip content={dictionary.removeLink}>
-            <ToolbarButton onClick={handleRemoveLink}>
+            <ToolbarButton onClick={this.handleRemoveLink}>
               <CloseIcon />
             </ToolbarButton>
           </Tooltip>
         )}
       </Wrapper>
-      <SearchResults $hasResults={hasResults}>
-        <ResizingHeightContainer>
-          {hasResults && (
-            <>
-              {results.map((doc, index) => (
-                <SuggestionsMenuItem
-                  onClick={() => {
-                    save(doc.url, doc.title);
-                    if (initialSelectionLength) {
-                      moveSelectionToEnd();
-                    }
-                  }}
-                  onPointerMove={() => setSelectedIndex(index)}
-                  selected={index === selectedIndex}
-                  key={doc.id}
-                  subtitle={doc.collection?.name}
-                  title={doc.title}
-                  icon={
-                    doc.icon ? (
-                      <Icon value={doc.icon} color={doc.color ?? undefined} />
-                    ) : (
-                      <DocumentIcon />
-                    )
-                  }
-                />
-              ))}
-            </>
-          )}
-        </ResizingHeightContainer>
-      </SearchResults>
-    </>
-  );
-};
+    );
+  }
+}
 
 const Wrapper = styled(Flex)`
   pointer-events: all;
   gap: 8px;
 `;
 
-const SearchResults = styled(Scrollable)<{ $hasResults: boolean }>`
-  background: ${s("menuBackground")};
-  box-shadow: ${(props) => (props.$hasResults ? s("menuShadow") : "none")};
-  clip-path: inset(0px -100px -100px -100px);
-  position: absolute;
-  top: 100%;
-  width: 100%;
-  height: auto;
-  left: 0;
-  margin-top: -6px;
-  border-radius: 0 0 4px 4px;
-  padding: ${(props) => (props.$hasResults ? "6px" : "0")};
-  max-height: 240px;
-  pointer-events: all;
-
-  ${hideScrollbars()}
-
-  @media (hover: none) and (pointer: coarse) {
-    position: fixed;
-    top: auto;
-    bottom: 40px;
-    border-radius: 0;
-    max-height: 50vh;
-    padding: 8px 8px 4px;
-  }
-`;
-
-export default observer(LinkEditor);
+export default LinkEditor;

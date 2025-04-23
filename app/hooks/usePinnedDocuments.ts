@@ -2,14 +2,13 @@ import * as React from "react";
 import usePersistedState from "~/hooks/usePersistedState";
 import useStores from "./useStores";
 
-type UrlId = "home" | string;
-
-export const pinsCacheKey = (urlId: UrlId) => `pins-${urlId}`;
-
-export function usePinnedDocuments(urlId: UrlId, collectionId?: string) {
+export function usePinnedDocuments(
+  urlId: "home" | string,
+  collectionId?: string
+) {
   const { pins } = useStores();
   const [pinsCacheCount, setPinsCacheCount] = usePersistedState<number>(
-    pinsCacheKey(urlId),
+    `pins-${urlId}`,
     0
   );
 

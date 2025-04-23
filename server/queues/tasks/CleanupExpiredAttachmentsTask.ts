@@ -8,7 +8,7 @@ type Props = {
 };
 
 export default class CleanupExpiredAttachmentsTask extends BaseTask<Props> {
-  static cron = TaskSchedule.Hour;
+  static cron = TaskSchedule.Daily;
 
   public async perform({ limit }: Props) {
     Logger.info("task", `Deleting expired attachments…`);

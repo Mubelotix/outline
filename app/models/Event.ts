@@ -7,6 +7,8 @@ import Relation from "./decorators/Relation";
 class Event<T extends Model> extends Model {
   static modelName = "Event";
 
+  id: string;
+
   name: string;
 
   modelId: string | undefined;

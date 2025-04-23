@@ -1,6 +1,5 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import Extension from "@shared/editor/lib/Extension";
-import { isList } from "@shared/editor/queries/isList";
 import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 
 /**
@@ -19,25 +18,17 @@ export default class ClipboardTextSerializer extends Extension {
       new Plugin({
         key: new PluginKey("clipboardTextSerializer"),
         props: {
-          clipboardTextSerializer: (slice, view) => {
+          clipboardTextSerializer: (slice) => {
             const isMultiline = slice.content.childCount > 1;
 
             // This is a cheap way to determine if the content is "complex",
             // aka it has multiple marks or formatting. In which case we'll use
             // markdown formatting
-            const hasMultipleListItems = slice.content.content
-              .filter((node) => node.content.content.length > 1)
-              .some((node) => isList(node, view.state.schema));
-            const hasMultipleBlockTypes =
-              [
-                ...new Set(
-                  slice.content.content
-                    .filter((node) => node.content.content.length > 1)
-                    .map((node) => node.type.name)
-                ),
-              ].length > 1;
             const copyAsMarkdown =
-              isMultiline || hasMultipleBlockTypes || hasMultipleListItems;
+              isMultiline ||
+              slice.content.content.some(
+                (node) => node.content.content.length > 1
+              );
 
             return copyAsMarkdown
               ? mdSerializer.serialize(slice.content, {

@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default class ErrorTimedOutFileOperationsTask extends BaseTask<Props> {
-  static cron = TaskSchedule.Hour;
+  static cron = TaskSchedule.Daily;
 
   public async perform({ limit }: Props) {
     Logger.info("task", `Error file operations running longer than 12 hours…`);

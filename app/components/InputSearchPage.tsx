@@ -60,8 +60,7 @@ function InputSearchPage({
       if (ev.key === "Enter") {
         ev.preventDefault();
         history.push(
-          searchPath({
-            query: ev.currentTarget.value,
+          searchPath(ev.currentTarget.value, {
             collectionId,
             ref: source,
           })

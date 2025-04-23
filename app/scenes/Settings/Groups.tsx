@@ -10,7 +10,6 @@ import Group from "~/models/Group";
 import { Action } from "~/components/Actions";
 import Button from "~/components/Button";
 import Empty from "~/components/Empty";
-import { ConditionalFade } from "~/components/Fade";
 import Heading from "~/components/Heading";
 import InputSearch from "~/components/InputSearch";
 import Scene from "~/components/Scene";
@@ -150,17 +149,15 @@ function Groups() {
               onChange={handleSearch}
             />
           </StickyFilters>
-          <ConditionalFade animate={!data}>
-            <GroupsTable
-              data={data ?? []}
-              sort={sort}
-              loading={loading}
-              page={{
-                hasNext: !!next,
-                fetchNext: next,
-              }}
-            />
-          </ConditionalFade>
+          <GroupsTable
+            data={data ?? []}
+            sort={sort}
+            loading={loading}
+            page={{
+              hasNext: !!next,
+              fetchNext: next,
+            }}
+          />
         </>
       )}
     </Scene>

@@ -46,15 +46,6 @@ describe("#ApiKey", () => {
   });
 
   describe("canAccess", () => {
-    it("should account for query string", async () => {
-      const apiKey = await buildApiKey({
-        name: "Dev",
-        scope: ["/api/documents.info"],
-      });
-
-      expect(apiKey.canAccess("/api/documents.info?foo=bar")).toBe(true);
-    });
-
     it("should return true for all resources if no scope", async () => {
       const apiKey = await buildApiKey({
         name: "Dev",

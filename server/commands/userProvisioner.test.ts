@@ -192,7 +192,7 @@ describe("userProvisioner", () => {
 
   it("should prefer isAdmin argument over defaultUserRole", async () => {
     const team = await buildTeam({
-      defaultUserRole: UserRole.Viewer,
+      defaultUserRole: "viewer",
     });
     const authenticationProviders = await team.$get("authenticationProviders");
     const authenticationProvider = authenticationProviders[0];

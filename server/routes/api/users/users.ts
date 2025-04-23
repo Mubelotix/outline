@@ -30,6 +30,7 @@ import pagination from "../middlewares/pagination";
 import * as T from "./schema";
 
 const router = new Router();
+const emailEnabled = !!(env.SMTP_HOST || env.isDevelopment);
 
 router.post(
   "users.list",
@@ -209,7 +210,7 @@ router.post(
   auth(),
   validate(T.UsersUpdateEmailSchema),
   async (ctx: APIContext<T.UsersUpdateEmailReq>) => {
-    if (!env.EMAIL_ENABLED) {
+    if (!emailEnabled) {
       throw ValidationError("Email support is not setup for this instance");
     }
 
@@ -251,7 +252,7 @@ router.get(
   transaction(),
   validate(T.UsersUpdateEmailConfirmSchema),
   async (ctx: APIContext<T.UsersUpdateEmailConfirmReq>) => {
-    if (!env.EMAIL_ENABLED) {
+    if (!emailEnabled) {
       throw ValidationError("Email support is not setup for this instance");
     }
 
@@ -625,7 +626,7 @@ router.post(
   rateLimiter(RateLimiterStrategy.FivePerHour),
   auth(),
   async (ctx: APIContext) => {
-    if (!env.EMAIL_ENABLED) {
+    if (!emailEnabled) {
       throw ValidationError("Email support is not setup for this instance");
     }
 
@@ -635,8 +636,6 @@ router.post(
     await new ConfirmUserDeleteEmail({
       to: user.email,
       deleteConfirmationCode: user.deleteConfirmationCode,
-      teamName: user.team.name,
-      teamUrl: user.team.url,
     }).schedule();
 
     ctx.body = {
@@ -670,7 +669,7 @@ router.post(
 
     // If we're attempting to delete our own account then a confirmation code
     // is required. This acts as CSRF protection.
-    if ((!id || id === actor.id) && env.EMAIL_ENABLED) {
+    if ((!id || id === actor.id) && emailEnabled) {
       const deleteConfirmationCode = user.deleteConfirmationCode;
 
       if (!safeEqual(code, deleteConfirmationCode)) {

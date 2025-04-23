@@ -13,7 +13,6 @@ type UserPresentation = {
   avatarUrl: string | null | undefined;
   createdAt: Date;
   updatedAt: Date;
-  deletedAt: Date | null;
   lastActiveAt: Date | null;
   color: string;
   role: UserRole;
@@ -38,7 +37,6 @@ export default function presentUser(
     isSuspended: user.isSuspended,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
-    deletedAt: user.deletedAt,
     lastActiveAt: user.lastActiveAt,
     timezone: user.timezone,
   };

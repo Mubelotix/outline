@@ -7,7 +7,7 @@ import BaseTask, { TaskPriority, TaskSchedule } from "./BaseTask";
 type Props = Record<string, never>;
 
 export default class CleanupOldNotificationsTask extends BaseTask<Props> {
-  static cron = TaskSchedule.Hour;
+  static cron = TaskSchedule.Daily;
 
   public async perform() {
     Logger.info("task", `Permanently destroying old notifications…`);

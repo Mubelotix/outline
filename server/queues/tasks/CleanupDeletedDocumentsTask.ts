@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default class CleanupDeletedDocumentsTask extends BaseTask<Props> {
-  static cron = TaskSchedule.Hour;
+  static cron = TaskSchedule.Daily;
 
   public async perform({ limit }: Props) {
     Logger.info(

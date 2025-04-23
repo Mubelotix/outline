@@ -22,7 +22,6 @@ import {
   setTableAttr,
   deleteColSelection,
   deleteRowSelection,
-  moveOutOfTable,
 } from "../commands/table";
 import { MarkdownSerializerState } from "../lib/markdown/serializer";
 import { FixTablesPlugin } from "../plugins/FixTables";
@@ -96,8 +95,6 @@ export default class Table extends Node {
         deleteColSelection(),
         deleteRowSelection()
       ),
-      ArrowDown: moveOutOfTable(1),
-      ArrowUp: moveOutOfTable(-1),
     };
   }
 

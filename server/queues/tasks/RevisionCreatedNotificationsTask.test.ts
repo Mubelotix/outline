@@ -169,25 +169,19 @@ describe("revisions.create", () => {
 
     // Should emit 3 `subscriptions.create` events.
     expect(events.length).toEqual(3);
-    expect(
-      events.every((event) => event.name === "subscriptions.create")
-    ).toEqual(true);
+    expect(events[0].name).toEqual("subscriptions.create");
+    expect(events[1].name).toEqual("subscriptions.create");
+    expect(events[2].name).toEqual("subscriptions.create");
 
     // Each event should point to same document.
-    expect(events.every((event) => event.documentId === document.id)).toEqual(
-      true
-    );
+    expect(events[0].documentId).toEqual(document.id);
+    expect(events[1].documentId).toEqual(document.id);
+    expect(events[2].documentId).toEqual(document.id);
 
     // Events should mention correct `userId`.
-    const userIds = events.map((event) => event.userId);
-    expect(userIds).toEqual(
-      expect.arrayContaining([
-        collaborator0.id,
-        collaborator1.id,
-        collaborator2.id,
-      ])
-    );
-    expect(userIds.length).toBe(3);
+    expect(events[0].userId).toEqual(collaborator0.id);
+    expect(events[1].userId).toEqual(collaborator1.id);
+    expect(events[2].userId).toEqual(collaborator2.id);
   });
 
   test("should not send multiple emails", async () => {
@@ -272,15 +266,16 @@ describe("revisions.create", () => {
 
     // Should emit 2 `subscriptions.create` events.
     expect(events.length).toEqual(2);
-    expect(events.every((event) => event.documentId === document.id)).toEqual(
-      true
-    );
-    expect(events.some((event) => event.userId === collaborator0.id)).toEqual(
-      true
-    );
-    expect(events.some((event) => event.userId === collaborator1.id)).toEqual(
-      true
-    );
+    expect(events[0].name).toEqual("subscriptions.create");
+    expect(events[1].name).toEqual("subscriptions.create");
+
+    // Each event should point to same document.
+    expect(events[0].documentId).toEqual(document.id);
+    expect(events[1].documentId).toEqual(document.id);
+
+    // Events should mention correct `userId`.
+    expect(events[0].userId).toEqual(collaborator0.id);
+    expect(events[1].userId).toEqual(collaborator1.id);
 
     // One notification as one collaborator performed edit and the other is
     // unsubscribed

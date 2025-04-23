@@ -10,8 +10,10 @@ export async function collectionIndexing(
   const collections = await Collection.findAll({
     where: {
       teamId,
+      // no point in maintaining index of deleted collections.
+      deletedAt: null,
     },
-    attributes: ["id", "index", "name", "teamId"],
+    attributes: ["id", "index", "name"],
     transaction,
   });
 
@@ -24,9 +26,7 @@ export async function collectionIndexing(
   for (const collection of sortable) {
     if (collection.index === null) {
       collection.index = fractionalIndex(previousIndex, null);
-      promises.push(
-        collection.save({ fields: ["index"], silent: true, transaction })
-      );
+      promises.push(collection.save({ transaction }));
     }
 
     previousIndex = collection.index;
@@ -67,7 +67,7 @@ export async function starIndexing(userId: string) {
   for (const star of sortable) {
     if (star.index === null) {
       star.index = fractionalIndex(previousIndex, null);
-      promises.push(star.save({ silent: true }));
+      promises.push(star.save());
     }
 
     previousIndex = star.index;

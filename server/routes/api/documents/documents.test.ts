@@ -8,7 +8,6 @@ import {
 } from "@shared/types";
 import { TextHelper } from "@shared/utils/TextHelper";
 import { createContext } from "@server/context";
-import { parser } from "@server/editor";
 import {
   Document,
   View,
@@ -1998,18 +1997,14 @@ describe("#documents.templatize", () => {
     });
     const body = await res.json();
     expect(res.status).toBe(400);
-    expect(body.message).toBe("id: Must be a valid UUID or slug");
+    expect(body.message).toBe("id: Required");
   });
   it("should require publish", async () => {
     const user = await buildUser();
-    const document = await buildDocument({
-      userId: user.id,
-      teamId: user.teamId,
-    });
     const res = await server.post("/api/documents.templatize", {
       body: {
         token: user.getJwtToken(),
-        id: document.id,
+        id: "random-id",
       },
     });
     const body = await res.json();
@@ -2586,7 +2581,7 @@ describe("#documents.move", () => {
     });
     const body = await res.json();
     expect(res.status).toEqual(400);
-    expect(body.message).toEqual("id: Must be a valid UUID or slug");
+    expect(body.message).toEqual("id: Required");
   });
 
   it("should fail for invalid index", async () => {
@@ -2892,7 +2887,7 @@ describe("#documents.restore", () => {
     });
     const body = await res.json();
     expect(res.status).toEqual(400);
-    expect(body.message).toEqual("id: Must be a valid UUID or slug");
+    expect(body.message).toEqual("id: Required");
   });
 
   it("should fail for invalid collectionId", async () => {
@@ -3258,26 +3253,21 @@ describe("#documents.restore", () => {
       teamId: user.teamId,
     });
     const revision = await Revision.createFromDocument(document);
-    const previous = revision.content;
+    const previousText = revision.text;
     const revisionId = revision.id;
-
     // update the document contents
-    document.content = parser.parse("updated")?.toJSON();
+    document.text = "UPDATED";
     await document.save();
-
     const res = await server.post("/api/documents.restore", {
       body: {
         token: user.getJwtToken(),
         id: document.id,
         revisionId,
       },
-      headers: {
-        "x-api-version": 3,
-      },
     });
     const body = await res.json();
     expect(res.status).toEqual(200);
-    expect(body.data.data).toEqual(previous);
+    expect(body.data.text).toEqual(previousText);
   });
 
   it("should not allow restoring a revision in another document", async () => {
@@ -4341,7 +4331,7 @@ describe("#documents.update", () => {
     });
     const body = await res.json();
     expect(res.status).toBe(400);
-    expect(body.message).toBe("id: Must be a valid UUID or slug");
+    expect(body.message).toBe("id: Required");
   });
 });
 
@@ -4355,7 +4345,7 @@ describe("#documents.archive", () => {
     });
     const body = await res.json();
     expect(res.status).toEqual(400);
-    expect(body.message).toEqual("id: Must be a valid UUID or slug");
+    expect(body.message).toEqual("id: Required");
   });
 
   it("should allow archiving document", async () => {
@@ -4398,7 +4388,7 @@ describe("#documents.delete", () => {
     });
     const body = await res.json();
     expect(res.status).toEqual(400);
-    expect(body.message).toEqual("id: Must be a valid UUID or slug");
+    expect(body.message).toEqual("id: Required");
   });
 
   it("should allow deleting document", async () => {
@@ -4547,7 +4537,7 @@ describe("#documents.unpublish", () => {
     });
     const body = await res.json();
     expect(res.status).toEqual(400);
-    expect(body.message).toEqual("id: Must be a valid UUID or slug");
+    expect(body.message).toEqual("id: Required");
   });
 
   it("should unpublish a document", async () => {
@@ -5093,7 +5083,7 @@ describe("#documents.add_user", () => {
     });
     const body = await res.json();
     expect(res.status).toEqual(400);
-    expect(body.message).toEqual("id: Must be a valid UUID or slug");
+    expect(body.message).toEqual("id: Required");
   });
 
   it("should require authentication", async () => {
@@ -5179,7 +5169,7 @@ describe("#documents.remove_user", () => {
     });
     const body = await res.json();
     expect(res.status).toEqual(400);
-    expect(body.message).toEqual("id: Must be a valid UUID or slug");
+    expect(body.message).toEqual("id: Required");
   });
 
   it("should require authentication", async () => {

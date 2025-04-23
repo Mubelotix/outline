@@ -2,11 +2,8 @@ import { CopyIcon, ExpandedIcon } from "outline-icons";
 import { Node as ProseMirrorNode } from "prosemirror-model";
 import { EditorState } from "prosemirror-state";
 import * as React from "react";
-import {
-  getFrequentCodeLanguages,
-  codeLanguages,
-  getLabelForLanguage,
-} from "@shared/editor/lib/code";
+import { LANGUAGES } from "@shared/editor/extensions/Prism";
+import { getFrequentCodeLanguages } from "@shared/editor/lib/code";
 import { MenuItem } from "@shared/editor/types";
 import { Dictionary } from "~/hooks/useDictionary";
 
@@ -17,19 +14,20 @@ export default function codeMenuItems(
 ): MenuItem[] {
   const node = state.selection.$from.node();
 
+  const allLanguages = Object.entries(LANGUAGES) as [
+    keyof typeof LANGUAGES,
+    string
+  ][];
   const frequentLanguages = getFrequentCodeLanguages();
 
   const frequentLangMenuItems = frequentLanguages.map((value) => {
-    const label = codeLanguages[value]?.label;
+    const label = LANGUAGES[value];
     return langToMenuItem({ node, value, label });
   });
 
-  const remainingLangMenuItems = Object.entries(codeLanguages)
-    .filter(
-      ([value]) =>
-        !frequentLanguages.includes(value as keyof typeof codeLanguages)
-    )
-    .map(([value, item]) => langToMenuItem({ node, value, label: item.label }));
+  const remainingLangMenuItems = allLanguages
+    .filter(([value]) => !frequentLanguages.includes(value))
+    .map(([value, label]) => langToMenuItem({ node, value, label }));
 
   const languageMenuItems = frequentLangMenuItems.length
     ? [
@@ -54,7 +52,8 @@ export default function codeMenuItems(
       visible: !readOnly,
       name: "code_block",
       icon: <ExpandedIcon />,
-      label: getLabelForLanguage(node.attrs.language ?? "none"),
+      // @ts-expect-error We have a fallback for incorrect mapping
+      label: LANGUAGES[node.attrs.language ?? "none"],
       children: languageMenuItems,
     },
   ];

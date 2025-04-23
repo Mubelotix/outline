@@ -2,7 +2,7 @@ import invariant from "invariant";
 import filter from "lodash/filter";
 import { CollectionPermission } from "@shared/types";
 import { Collection, User, Team } from "@server/models";
-import { allow } from "./cancan";
+import { allow, can } from "./cancan";
 import { and, isTeamAdmin, isTeamModel, isTeamMutable, or } from "./utils";
 
 allow(User, "createCollection", Team, (actor, team) =>
@@ -49,7 +49,7 @@ allow(User, "read", Collection, (user, collection) => {
 
 allow(
   User,
-  ["readDocument", "star", "unstar", "subscribe", "unsubscribe"],
+  ["readDocument", "star", "unstar"],
   Collection,
   (user, collection) => {
     if (!collection || user.teamId !== collection.teamId) {
@@ -65,6 +65,15 @@ allow(
 
     return true;
   }
+);
+
+allow(User, "export", Collection, (actor, collection) =>
+  and(
+    //
+    can(actor, "read", collection),
+    !actor.isViewer,
+    !actor.isGuest
+  )
 );
 
 allow(User, "share", Collection, (user, collection) => {
@@ -152,7 +161,7 @@ allow(
   }
 );
 
-allow(User, ["update", "export", "archive"], Collection, (user, collection) =>
+allow(User, ["update", "archive"], Collection, (user, collection) =>
   and(
     !!collection,
     !!collection?.isActive,

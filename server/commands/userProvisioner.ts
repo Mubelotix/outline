@@ -63,7 +63,7 @@ export default async function userProvisioner({
   const auth = authentication
     ? await UserAuthentication.findOne({
         where: {
-          providerId: String(authentication.providerId),
+          providerId: "" + authentication.providerId,
         },
         include: [
           {

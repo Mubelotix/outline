@@ -14,7 +14,6 @@ import { useHistory } from "react-router-dom";
 import { useMenuState, MenuButton, MenuButtonHTMLProps } from "reakit/Menu";
 import { VisuallyHidden } from "reakit/VisuallyHidden";
 import { toast } from "sonner";
-import { SubscriptionType } from "@shared/types";
 import { getEventFiles } from "@shared/utils/files";
 import Collection from "~/models/Collection";
 import ContextMenu, { Placement } from "~/components/ContextMenu";
@@ -32,13 +31,10 @@ import {
   createTemplate,
   archiveCollection,
   restoreCollection,
-  subscribeCollection,
-  unsubscribeCollection,
 } from "~/actions/definitions/collections";
 import useActionContext from "~/hooks/useActionContext";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
 import usePolicy from "~/hooks/usePolicy";
-import useRequest from "~/hooks/useRequest";
 import useStores from "~/hooks/useStores";
 import { MenuItem } from "~/types";
 import { newDocumentPath } from "~/utils/routeHelpers";
@@ -67,27 +63,10 @@ function CollectionMenu({
     placement,
   });
   const team = useCurrentTeam();
-  const { documents, dialogs, subscriptions } = useStores();
+  const { documents, dialogs } = useStores();
   const { t } = useTranslation();
   const history = useHistory();
   const file = React.useRef<HTMLInputElement>(null);
-
-  const {
-    loading: subscriptionLoading,
-    loaded: subscriptionLoaded,
-    request: loadSubscription,
-  } = useRequest(() =>
-    subscriptions.fetchOne({
-      collectionId: collection.id,
-      event: SubscriptionType.Document,
-    })
-  );
-
-  const handlePointerEnter = React.useCallback(() => {
-    if (!subscriptionLoading && !subscriptionLoaded) {
-      void loadSubscription();
-    }
-  }, [subscriptionLoading, subscriptionLoaded, loadSubscription]);
 
   const handleExport = React.useCallback(() => {
     dialogs.openModal({
@@ -178,8 +157,6 @@ function CollectionMenu({
       actionToMenuItem(restoreCollection, context),
       actionToMenuItem(starCollection, context),
       actionToMenuItem(unstarCollection, context),
-      actionToMenuItem(subscribeCollection, context),
-      actionToMenuItem(unsubscribeCollection, context),
       {
         type: "separator",
       },
@@ -295,15 +272,9 @@ function CollectionMenu({
         </label>
       </VisuallyHidden>
       {label ? (
-        <MenuButton {...menu} onPointerEnter={handlePointerEnter}>
-          {label}
-        </MenuButton>
+        <MenuButton {...menu}>{label}</MenuButton>
       ) : (
-        <OverflowMenuButton
-          aria-label={t("Show menu")}
-          {...menu}
-          onPointerEnter={handlePointerEnter}
-        />
+        <OverflowMenuButton aria-label={t("Show menu")} {...menu} />
       )}
       <ContextMenu
         {...menu}

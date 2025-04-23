@@ -8,13 +8,14 @@ import styled from "styled-components";
 import breakpoint from "styled-components-breakpoint";
 import { v4 as uuidv4 } from "uuid";
 import { Pagination } from "@shared/constants";
-import { hideScrollbars } from "@shared/styles";
+import { hover, hideScrollbars } from "@shared/styles";
 import {
   DateFilter as TDateFilter,
   StatusFilter as TStatusFilter,
 } from "@shared/types";
 import ArrowKeyNavigation from "~/components/ArrowKeyNavigation";
 import DocumentListItem from "~/components/DocumentListItem";
+import Empty from "~/components/Empty";
 import Fade from "~/components/Fade";
 import Flex from "~/components/Flex";
 import LoadingIndicator from "~/components/LoadingIndicator";
@@ -37,7 +38,9 @@ import RecentSearches from "./components/RecentSearches";
 import SearchInput from "./components/SearchInput";
 import UserFilter from "./components/UserFilter";
 
-function Search() {
+type Props = { notFound?: boolean };
+
+function Search(props: Props) {
   const { t } = useTranslation();
   const { documents, searches } = useStores();
 
@@ -45,7 +48,7 @@ function Search() {
   const params = useQuery();
   const location = useLocation();
   const history = useHistory();
-  const routeMatch = useRouteMatch<{ query: string }>();
+  const routeMatch = useRouteMatch<{ term: string }>();
 
   // refs
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -54,13 +57,13 @@ function Search() {
 
   // filters
   const decodedQuery = decodeURIComponentSafe(
-    routeMatch.params.query ?? params.get("q") ?? params.get("query") ?? ""
+    routeMatch.params.term ?? params.get("query") ?? ""
   ).trim();
   const query = decodedQuery !== "" ? decodedQuery : undefined;
-  const collectionId = params.get("collectionId") ?? "";
-  const userId = params.get("userId") ?? "";
+  const collectionId = params.get("collectionId") ?? undefined;
+  const userId = params.get("userId") ?? undefined;
   const documentId = params.get("documentId") ?? undefined;
-  const dateFilter = (params.get("dateFilter") as TDateFilter) ?? "";
+  const dateFilter = (params.get("dateFilter") as TDateFilter) ?? undefined;
   const statusFilter = params.getAll("statusFilter")?.length
     ? (params.getAll("statusFilter") as TStatusFilter[])
     : [TStatusFilter.Published, TStatusFilter.Draft];
@@ -127,9 +130,9 @@ function Search() {
 
   const updateLocation = (query: string) => {
     history.replace({
-      pathname: location.pathname,
+      pathname: searchPath(query),
       search: queryString.stringify(
-        { ...queryString.parse(location.search), q: query },
+        { ...queryString.parse(location.search), query: undefined },
         {
           skipEmptyString: true,
         }
@@ -150,7 +153,7 @@ function Search() {
     history.replace({
       pathname: location.pathname,
       search: queryString.stringify(
-        { ...queryString.parse(location.search), ...search },
+        { ...queryString.parse(location.search), query: undefined, ...search },
         {
           skipEmptyString: true,
         }
@@ -208,6 +211,14 @@ function Search() {
     <Scene textTitle={query ? `${query} – ${t("Search")}` : t("Search")}>
       <RegisterKeyDown trigger="Escape" handler={history.goBack} />
       {loading && <LoadingIndicator />}
+      {props.notFound && (
+        <div>
+          <h1>{t("Not Found")}</h1>
+          <Empty>
+            {t("We were unable to find the page you’re looking for.")}
+          </Empty>
+        </div>
+      )}
       <ResultsWrapper column auto>
         <form
           method="GET"
@@ -364,24 +375,27 @@ const StyledArrowKeyNavigation = styled(ArrowKeyNavigation)`
 
 const Filters = styled(Flex)`
   margin-bottom: 12px;
+  opacity: 0.85;
   transition: opacity 100ms ease-in-out;
   overflow-y: hidden;
   overflow-x: auto;
   padding: 8px 0;
-  height: 28px;
   gap: 8px;
-
   ${hideScrollbars()}
 
   ${breakpoint("tablet")`
     padding: 0;
   `};
+
+  &: ${hover} {
+    opacity: 1;
+  }
 `;
 
 const SearchTitlesFilter = styled(Switch)`
   white-space: nowrap;
   margin-left: 8px;
-  margin-top: 4px;
+  margin-top: 2px;
   font-size: 14px;
   font-weight: 400;
 `;

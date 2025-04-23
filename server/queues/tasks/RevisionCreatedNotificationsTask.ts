@@ -9,7 +9,7 @@ import { Document, Revision, Notification, User, View } from "@server/models";
 import { DocumentHelper } from "@server/models/helpers/DocumentHelper";
 import NotificationHelper from "@server/models/helpers/NotificationHelper";
 import { RevisionEvent } from "@server/types";
-import { canUserAccessDocument } from "@server/utils/permissions";
+import { canUserAccessDocument } from "@server/utils/policies";
 import BaseTask, { TaskPriority } from "./BaseTask";
 
 export default class RevisionCreatedNotificationsTask extends BaseTask<RevisionEvent> {
@@ -28,10 +28,10 @@ export default class RevisionCreatedNotificationsTask extends BaseTask<RevisionE
     const before = await revision.before();
 
     // If the content looks the same, don't send notifications
-    if (!DocumentHelper.isChangeOverThreshold(before, revision, 5)) {
+    if (DocumentHelper.isTextContentEqual(before, revision)) {
       Logger.info(
         "processor",
-        `suppressing notifications as update has insignificant changes`
+        `suppressing notifications as update has no visual changes`
       );
       return;
     }
@@ -73,11 +73,12 @@ export default class RevisionCreatedNotificationsTask extends BaseTask<RevisionE
     }
 
     const recipients = (
-      await NotificationHelper.getDocumentNotificationRecipients({
+      await NotificationHelper.getDocumentNotificationRecipients(
         document,
-        notificationType: NotificationEventType.UpdateDocument,
-        actorId: document.lastModifiedById,
-      })
+        NotificationEventType.UpdateDocument,
+        document.lastModifiedById,
+        true
+      )
     ).filter((recipient) => !userIdsMentioned.includes(recipient.id));
     if (!recipients.length) {
       return;

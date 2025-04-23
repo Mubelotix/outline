@@ -18,7 +18,6 @@ export default function usePolicy(entity?: string | Model | null) {
       ? entity
       : entity.id
     : "";
-  const policy = policies.get(entityId);
 
   React.useEffect(() => {
     if (
@@ -29,11 +28,11 @@ export default function usePolicy(entity?: string | Model | null) {
     ) {
       // The policy for this model is missing and we have an authenticated session, attempt to
       // reload relationships for this model.
-      if (!policy && user) {
+      if (!policies.get(entity.id) && user) {
         void entity.loadRelations();
       }
     }
-  }, [policies, policy, user, entity]);
+  }, [policies, user, entity]);
 
   return policies.abilities(entityId);
 }

@@ -203,35 +203,6 @@ export default class SearchHelper {
     });
   }
 
-  public static async searchCollectionsForUser(
-    user: User,
-    options: SearchOptions = {}
-  ): Promise<Collection[]> {
-    const { limit = 15, offset = 0, query } = options;
-
-    const collectionIds = await user.collectionIds();
-
-    return Collection.findAll({
-      where: {
-        [Op.and]: query
-          ? {
-              [Op.or]: [
-                Sequelize.literal(
-                  `unaccent(LOWER(name)) like unaccent(LOWER(:query))`
-                ),
-              ],
-            }
-          : {},
-        id: collectionIds,
-        teamId: user.teamId,
-      },
-      order: [["name", "ASC"]],
-      replacements: { query: `%${query}%` },
-      limit,
-      offset,
-    });
-  }
-
   public static async searchForUser(
     user: User,
     options: SearchOptions = {}
@@ -499,7 +470,7 @@ export default class SearchHelper {
       const likelyUrls = getUrls(options.query);
 
       // remove likely urls, and escape the rest of the query.
-      let limitedQuery = this.escapeQuery(
+      const limitedQuery = this.escapeQuery(
         likelyUrls
           .reduce((q, url) => q.replace(url, ""), options.query)
           .slice(0, this.maxQueryLength)
@@ -510,9 +481,6 @@ export default class SearchHelper {
       const quotedQueries = Array.from(limitedQuery.matchAll(/"([^"]*)"/g)).map(
         (match) => match[1]
       );
-
-      // remove quoted queries from the limited query
-      limitedQuery = limitedQuery.replace(/"([^"]*)"/g, "");
 
       const iLikeQueries = [...quotedQueries, ...likelyUrls].slice(0, 3);
 
@@ -630,8 +598,6 @@ export default class SearchHelper {
   }
 
   private static removeStopWords(query: string): string {
-    // Based on:
-    // https://github.com/postgres/postgres/blob/fc0d0ce978752493868496be6558fa17b7c4c3cf/src/backend/snowball/stopwords/english.stop
     const stopwords = [
       "i",
       "me",
@@ -696,6 +662,7 @@ export default class SearchHelper {
       "because",
       "as",
       "until",
+      "while",
       "of",
       "at",
       "by",
@@ -703,6 +670,7 @@ export default class SearchHelper {
       "with",
       "about",
       "against",
+      "between",
       "into",
       "through",
       "during",
@@ -710,12 +678,18 @@ export default class SearchHelper {
       "after",
       "above",
       "below",
+      "to",
       "from",
+      "up",
       "down",
+      "in",
+      "out",
+      "on",
       "off",
       "over",
       "under",
       "again",
+      "further",
       "then",
       "once",
       "here",
@@ -723,15 +697,22 @@ export default class SearchHelper {
       "when",
       "where",
       "why",
+      "how",
+      "all",
       "any",
       "both",
       "each",
       "few",
+      "more",
+      "most",
       "other",
       "some",
       "such",
+      "no",
       "nor",
+      "not",
       "only",
+      "own",
       "same",
       "so",
       "than",
@@ -739,8 +720,12 @@ export default class SearchHelper {
       "very",
       "s",
       "t",
+      "can",
+      "will",
+      "just",
       "don",
       "should",
+      "now",
     ];
     return query
       .split(" ")

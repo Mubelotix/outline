@@ -48,7 +48,9 @@ class Metrics {
       return Promise.resolve();
     }
 
-    return ddMetrics.flush();
+    return new Promise((resolve, reject) => {
+      ddMetrics.flush(resolve, reject);
+    });
   }
 }
 

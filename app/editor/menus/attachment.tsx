@@ -13,11 +13,13 @@ export default function attachmentMenuItems(
       name: "replaceAttachment",
       tooltip: dictionary.replaceAttachment,
       icon: <ReplaceIcon />,
+      visible: true,
     },
     {
       name: "deleteAttachment",
       tooltip: dictionary.deleteAttachment,
       icon: <TrashIcon />,
+      visible: true,
     },
     {
       name: "separator",

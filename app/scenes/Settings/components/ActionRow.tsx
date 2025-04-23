@@ -1,6 +1,5 @@
 import { transparentize } from "polished";
 import styled from "styled-components";
-import breakpoint from "styled-components-breakpoint";
 import { s } from "@shared/styles";
 
 /**
@@ -9,9 +8,8 @@ import { s } from "@shared/styles";
 export const ActionRow = styled.div`
   position: sticky;
   bottom: 0;
-  width: 100vw;
-  padding: 16px 12px;
-  margin-left: -12px;
+  padding: 16px 50vw;
+  margin: 0 -50vw;
 
   background: ${s("background")};
 
@@ -19,8 +17,4 @@ export const ActionRow = styled.div`
     backdrop-filter: blur(20px);
     background: ${(props) => transparentize(0.2, props.theme.background)};
   }
-
-  ${breakpoint("tablet")`
-    width: auto;
-  `}
 `;

@@ -12,7 +12,6 @@ import isCloudHosted from "./isCloudHosted";
  */
 export enum Hook {
   Settings = "settings",
-  Imports = "imports",
   Icon = "icon",
 }
 
@@ -31,16 +30,6 @@ type PluginValueMap = {
     component: React.LazyExoticComponent<React.ComponentType>;
     /** Whether the plugin is enabled in the current context. */
     enabled?: (team: Team, user: User) => boolean;
-  };
-  [Hook.Imports]: {
-    /** The title of the import. */
-    title: string;
-    /** The auxiliary descriptive text of the import. */
-    subtitle: string;
-    /** An icon to denote the kind of import. */
-    icon: React.ReactElement;
-    /** Trigger for the import. */
-    action: React.ReactElement;
   };
   [Hook.Icon]: React.ElementType;
 };
