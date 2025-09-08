@@ -1,6 +1,5 @@
-import flatten from "lodash/flatten";
 import { observer } from "mobx-react";
-import * as React from "react";
+import { useState, useMemo } from "react";
 import { useTranslation, Trans } from "react-i18next";
 import { toast } from "sonner";
 import styled from "styled-components";
@@ -13,7 +12,6 @@ import Flex from "~/components/Flex";
 import Text from "~/components/Text";
 import useCollectionTrees from "~/hooks/useCollectionTrees";
 import useStores from "~/hooks/useStores";
-import { flattenTree } from "~/utils/tree";
 
 type Props = {
   document: Document;
@@ -23,11 +21,9 @@ function DocumentMove({ document }: Props) {
   const { dialogs, policies } = useStores();
   const { t } = useTranslation();
   const collectionTrees = useCollectionTrees();
-  const [selectedPath, selectPath] = React.useState<NavigationNode | null>(
-    null
-  );
+  const [selectedPath, selectPath] = useState<NavigationNode | null>(null);
 
-  const items = React.useMemo(() => {
+  const items = useMemo(() => {
     // Recursively filter out the document itself and its existing parent doc, if any.
     const filterSourceDocument = (node: NavigationNode): NavigationNode => ({
       ...node,
@@ -38,12 +34,7 @@ function DocumentMove({ document }: Props) {
         .map(filterSourceDocument),
     });
 
-    // Filter out the document itself and its existing parent doc, if any.
-    const nodes = flatten(collectionTrees.map(flattenTree))
-      .filter(
-        (node) =>
-          node.id !== document.id && node.id !== document.parentDocumentId
-      )
+    const nodes = collectionTrees
       .map(filterSourceDocument)
       // Filter out collections that we don't have permission to create documents in.
       .filter((node) =>
@@ -88,7 +79,7 @@ function DocumentMove({ document }: Props) {
       toast.success(t("Document moved"));
 
       dialogs.closeAllModals();
-    } catch (err) {
+    } catch (_err) {
       toast.error(t("Couldn’t move the document, try again?"));
     }
   };
@@ -102,7 +93,7 @@ function DocumentMove({ document }: Props) {
             <Trans
               defaults="Move to <em>{{ location }}</em>"
               values={{
-                location: selectedPath.title,
+                location: selectedPath.title || t("Untitled"),
               }}
               components={{
                 em: <strong />,

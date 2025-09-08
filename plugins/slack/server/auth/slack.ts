@@ -4,16 +4,15 @@ import Router from "koa-router";
 import { Profile } from "passport";
 import { Strategy as SlackStrategy } from "passport-slack-oauth2";
 import { IntegrationService, IntegrationType } from "@shared/types";
-import { parseDomain } from "@shared/utils/domains";
 import accountProvisioner from "@server/commands/accountProvisioner";
 import { ValidationError } from "@server/errors";
+import apexAuthRedirect from "@server/middlewares/apexAuthRedirect";
 import auth from "@server/middlewares/authentication";
 import passportMiddleware from "@server/middlewares/passport";
 import validate from "@server/middlewares/validate";
 import {
   IntegrationAuthentication,
   Integration,
-  Team,
   User,
   Collection,
 } from "@server/models";
@@ -25,10 +24,12 @@ import {
   getTeamFromContext,
   StateStore,
 } from "@server/utils/passport";
+import { parseEmail } from "@shared/utils/email";
 import env from "../env";
 import * as Slack from "../slack";
 import * as T from "./schema";
 import { SlackUtils } from "plugins/slack/shared/SlackUtils";
+import { createContext } from "@server/context";
 
 type SlackProfile = Profile & {
   team: {
@@ -68,7 +69,7 @@ if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) {
       scope: scopes,
     },
     async function (
-      ctx: Context,
+      context: Context,
       accessToken: string,
       refreshToken: string,
       params: { expires_in: number },
@@ -80,14 +81,17 @@ if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) {
       ) => void
     ) {
       try {
-        const team = await getTeamFromContext(ctx);
-        const client = getClientFromContext(ctx);
+        const team = await getTeamFromContext(context);
+        const client = getClientFromContext(context);
 
-        const result = await accountProvisioner({
-          ip: ctx.ip,
+        const { domain } = parseEmail(profile.user.email);
+
+        const ctx = createContext({ ip: context.ip });
+        const result = await accountProvisioner(ctx, {
           team: {
             teamId: team?.id,
             name: profile.team.name,
+            domain,
             subdomain: profile.team.domain,
             avatarUrl: profile.team.image_230,
           },
@@ -126,6 +130,15 @@ if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) {
     "slack.post",
     auth({ optional: true }),
     validate(T.SlackPostSchema),
+    apexAuthRedirect<T.SlackPostReq>({
+      getTeamId: (ctx) => SlackUtils.parseState(ctx.input.query.state)?.teamId,
+      getRedirectPath: (ctx, team) =>
+        SlackUtils.connectUrl({
+          baseUrl: team.url,
+          params: ctx.request.querystring,
+        }),
+      getErrorPath: () => SlackUtils.errorUrl("unauthenticated"),
+    }),
     async (ctx: APIContext<T.SlackPostReq>) => {
       const { code, error, state } = ctx.input.query;
       const { user } = ctx.state.auth;
@@ -140,41 +153,17 @@ if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) {
         parsedState = SlackUtils.parseState<{
           collectionId: string;
         }>(state);
-      } catch (err) {
+      } catch (_err) {
         throw ValidationError("Invalid state");
       }
 
-      const { teamId, collectionId, type } = parsedState;
-
-      // This code block accounts for the root domain being unable to access authentication for
-      // subdomains. We must forward to the appropriate subdomain to complete the OAuth flow.
-      if (!user) {
-        if (teamId) {
-          try {
-            const team = await Team.findByPk(teamId, {
-              rejectOnEmpty: true,
-            });
-            return parseDomain(ctx.host).teamSubdomain === team.subdomain
-              ? ctx.redirect("/")
-              : ctx.redirectOnClient(
-                  SlackUtils.connectUrl({
-                    baseUrl: team.url,
-                    params: ctx.request.querystring,
-                  })
-                );
-          } catch (err) {
-            return ctx.redirect(SlackUtils.errorUrl("unauthenticated"));
-          }
-        } else {
-          return ctx.redirect(SlackUtils.errorUrl("unauthenticated"));
-        }
-      }
+      const { collectionId, type } = parsedState;
 
       switch (type) {
         case IntegrationType.Post: {
-          const collection = await Collection.scope({
-            method: ["withMembership", user.id],
-          }).findByPk(collectionId);
+          const collection = await Collection.findByPk(collectionId, {
+            userId: user.id,
+          });
           authorize(user, "read", collection);
           authorize(user, "update", user.team);
 

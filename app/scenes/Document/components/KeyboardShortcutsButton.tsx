@@ -1,6 +1,5 @@
 import { observer } from "mobx-react";
 import { KeyboardIcon } from "outline-icons";
-import * as React from "react";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import breakpoint from "styled-components-breakpoint";
@@ -24,7 +23,11 @@ function KeyboardShortcutsButton() {
 
   return (
     <Tooltip content={t("Keyboard shortcuts")} shortcut="?">
-      <Button onClick={handleOpenKeyboardShortcuts} $hidden={isEditingFocus}>
+      <Button
+        onClick={handleOpenKeyboardShortcuts}
+        $hidden={isEditingFocus}
+        aria-label={t("Keyboard shortcuts")}
+      >
         <KeyboardIcon />
       </Button>
     </Tooltip>
@@ -33,9 +36,6 @@ function KeyboardShortcutsButton() {
 
 const Button = styled(NudeButton)<{ $hidden: boolean }>`
   display: none;
-  position: fixed;
-  bottom: 0;
-  margin: 20px;
   transition: opacity 500ms ease-in-out;
   ${(props) => props.$hidden && "opacity: 0;"}
 

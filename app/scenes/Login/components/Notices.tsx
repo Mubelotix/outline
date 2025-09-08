@@ -1,12 +1,15 @@
-/* eslint-disable react/no-unescaped-entities */
+/* oxlint-disable react/no-unescaped-entities */
 import { WarningIcon } from "outline-icons";
-import * as React from "react";
 import { Trans } from "react-i18next";
 import Notice from "~/components/Notice";
 import useQuery from "~/hooks/useQuery";
 
 function Message({ notice }: { notice: string }) {
   switch (notice) {
+    case "invalid-code":
+      return (
+        <Trans>Sorry, the code you entered is invalid or has expired.</Trans>
+      );
     case "domain-not-allowed":
       return (
         <Trans>
@@ -123,7 +126,7 @@ function Message({ notice }: { notice: string }) {
   }
 }
 
-export default function Notices() {
+export function Notices() {
   const query = useQuery();
   const notice = query.get("notice");
 

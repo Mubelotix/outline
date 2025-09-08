@@ -1,5 +1,5 @@
-/* eslint-disable no-console */
-// eslint-disable-next-line import/order
+/* oxlint-disable no-console */
+// oxlint-disable-next-line import/order
 import environment from "./utils/environment";
 import os from "os";
 import {
@@ -15,7 +15,13 @@ import {
 } from "class-validator";
 import uniq from "lodash/uniq";
 import { languages } from "@shared/i18n";
-import { CannotUseWith, CannotUseWithout } from "@server/utils/validators";
+import { Day, Hour } from "@shared/utils/time";
+import {
+  CannotUseWith,
+  CannotUseWithout,
+  CannotUseWithAny,
+  IsInCaseInsensitive,
+} from "@server/utils/validators";
 import Deprecated from "./models/decorators/Deprecated";
 import { getArg } from "./utils/args";
 import { Public, PublicEnvironmentRegister } from "./utils/decorators/Public";
@@ -72,13 +78,58 @@ export class Environment {
   /**
    * The url of the database.
    */
-  @IsNotEmpty()
+  @IsOptional()
   @IsUrl({
     require_tld: false,
     allow_underscores: true,
     protocols: ["postgres", "postgresql"],
   })
-  public DATABASE_URL = environment.DATABASE_URL ?? "";
+  @CannotUseWithAny([
+    "DATABASE_HOST",
+    "DATABASE_PORT",
+    "DATABASE_NAME",
+    "DATABASE_USER",
+    "DATABASE_PASSWORD",
+  ])
+  public DATABASE_URL = this.toOptionalString(environment.DATABASE_URL);
+
+  /**
+   * Database host for individual component configuration.
+   */
+  @IsOptional()
+  @CannotUseWith("DATABASE_URL")
+  public DATABASE_HOST = this.toOptionalString(environment.DATABASE_HOST);
+
+  /**
+   * Database port for individual component configuration.
+   */
+  @IsOptional()
+  @IsNumber()
+  @CannotUseWith("DATABASE_URL")
+  public DATABASE_PORT = this.toOptionalNumber(environment.DATABASE_PORT);
+
+  /**
+   * Database name for individual component configuration.
+   */
+  @IsOptional()
+  @CannotUseWith("DATABASE_URL")
+  public DATABASE_NAME = this.toOptionalString(environment.DATABASE_NAME);
+
+  /**
+   * Database user for individual component configuration.
+   */
+  @IsOptional()
+  @CannotUseWith("DATABASE_URL")
+  public DATABASE_USER = this.toOptionalString(environment.DATABASE_USER);
+
+  /**
+   * Database password for individual component configuration.
+   */
+  @IsOptional()
+  @CannotUseWith("DATABASE_URL")
+  public DATABASE_PASSWORD = this.toOptionalString(
+    environment.DATABASE_PASSWORD
+  );
 
   /**
    * An optional database schema.
@@ -134,6 +185,12 @@ export class Environment {
    */
   @IsNotEmpty()
   public REDIS_URL = environment.REDIS_URL;
+
+  /**
+   * The url of redis for horizontally scaling the collaboration service. If not
+   * set then the collaboration service must be ran as a singleton.
+   */
+  public REDIS_COLLABORATION_URL = environment.REDIS_COLLABORATION_URL;
 
   /**
    * The fully qualified, external facing domain name of the server.
@@ -351,6 +408,37 @@ export class Environment {
    * See https://community.nodemailer.com/2-0-0-beta/setup-smtp/well-known-services/
    */
   @CannotUseWith("SMTP_HOST")
+  @IsInCaseInsensitive([
+    "1und1",
+    "AOL",
+    "DebugMail.io",
+    "DynectEmail",
+    "FastMail",
+    "GandiMail",
+    "Gmail",
+    "Godaddy",
+    "GodaddyAsia",
+    "GodaddyEurope",
+    "hot.ee",
+    "Hotmail",
+    "iCloud",
+    "mail.ee",
+    "Mail.ru",
+    "Mailgun",
+    "Mailjet",
+    "Mandrill",
+    "Naver",
+    "Postmark",
+    "QQ",
+    "QQex",
+    "SendCloud",
+    "SendGrid",
+    "SES",
+    "Sparkpost",
+    "Yahoo",
+    "Yandex",
+    "Zoho",
+  ])
   public SMTP_SERVICE = this.toOptionalString(environment.SMTP_SERVICE);
 
   @Public
@@ -630,6 +718,13 @@ export class Environment {
     1000000;
 
   /**
+   * Timeout in milliseconds for downloading files from remote locations to file storage.
+   */
+  @IsNumber()
+  public FILE_STORAGE_IMPORT_TIMEOUT =
+    this.toOptionalNumber(environment.FILE_STORAGE_IMPORT_TIMEOUT) ?? 60000;
+
+  /**
    * Set max allowed upload size for imports at workspace level.
    */
   @IsNumber()
@@ -662,11 +757,65 @@ export class Environment {
     this.toOptionalNumber(environment.MAXIMUM_EXPORT_SIZE) ?? os.totalmem();
 
   /**
+   * The number of seconds access tokens issue by the OAuth provider are valid.
+   */
+  @IsNumber()
+  public OAUTH_PROVIDER_ACCESS_TOKEN_LIFETIME =
+    this.toOptionalNumber(environment.OAUTH_PROVIDER_ACCESS_TOKEN_LIFETIME) ??
+    Hour.seconds;
+
+  /**
+   * The number of seconds refresh tokens issue by the OAuth provider are valid.
+   */
+  @IsNumber()
+  public OAUTH_PROVIDER_REFRESH_TOKEN_LIFETIME =
+    this.toOptionalNumber(environment.OAUTH_PROVIDER_REFRESH_TOKEN_LIFETIME) ??
+    30 * Day.seconds;
+
+  /**
+   * The number of seconds authorization codes issue by the OAuth provider are valid.
+   */
+  @IsNumber()
+  public OAUTH_PROVIDER_AUTHORIZATION_CODE_LIFETIME =
+    this.toOptionalNumber(
+      environment.OAUTH_PROVIDER_AUTHORIZATION_CODE_LIFETIME
+    ) ?? 300;
+
+  /**
    * Enable unsafe-inline in script-src CSP directive
    */
   @IsBoolean()
   public DEVELOPMENT_UNSAFE_INLINE_CSP = this.toBoolean(
     environment.DEVELOPMENT_UNSAFE_INLINE_CSP ?? "false"
+  );
+
+  /**
+   * Time window in seconds to analyze webhook failures for disabling decision.
+   * Defaults to 86400 seconds (24 hours).
+   */
+  @IsNumber()
+  @IsOptional()
+  public WEBHOOK_FAILURE_TIME_WINDOW =
+    this.toOptionalNumber(environment.WEBHOOK_FAILURE_TIME_WINDOW) ?? 86400;
+
+  /**
+   * Percentage threshold of failures within the time window that triggers
+   * webhook disabling. Defaults to 80%.
+   */
+  @IsNumber()
+  @IsOptional()
+  public WEBHOOK_FAILURE_RATE_THRESHOLD =
+    this.toOptionalNumber(environment.WEBHOOK_FAILURE_RATE_THRESHOLD) ?? 80;
+
+  /**
+   * Comma-separated list of IP addresses that are allowed to be accessed
+   * even if they are private IP addresses. This is useful for allowing
+   * connections to OIDC providers or webhooks on private networks.
+   * Example: "10.0.0.1,192.168.1.100"
+   */
+  @IsOptional()
+  public ALLOWED_PRIVATE_IP_ADDRESSES = this.toOptionalCommaList(
+    environment.ALLOWED_PRIVATE_IP_ADDRESSES
   );
 
   /**
@@ -735,7 +884,7 @@ export class Environment {
   protected toBoolean(value: string) {
     try {
       return value ? !!JSON.parse(value) : false;
-    } catch (err) {
+    } catch (_err) {
       throw new Error(
         `"${value}" could not be parsed as a boolean, must be "true" or "false"`
       );
@@ -757,7 +906,7 @@ export class Environment {
   protected toOptionalBoolean(value: string | undefined) {
     try {
       return value ? !!JSON.parse(value) : undefined;
-    } catch (err) {
+    } catch (_err) {
       return undefined;
     }
   }

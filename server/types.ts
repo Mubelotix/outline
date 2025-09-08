@@ -37,12 +37,14 @@ import type {
   Share,
   GroupMembership,
   Import,
+  OAuthClient,
 } from "./models";
 
 export enum AuthenticationType {
   API = "api",
   APP = "app",
   HEADER = "header",
+  OAUTH = "oauth",
 }
 
 export type AuthenticationResult = AccountProvisionerResult & {
@@ -51,7 +53,7 @@ export type AuthenticationResult = AccountProvisionerResult & {
 
 export type Authentication = {
   user: User;
-  token?: string;
+  token: string;
   type?: AuthenticationType;
 };
 
@@ -112,24 +114,24 @@ export type ApiKeyEvent = BaseEvent<ApiKey> & {
 export type AttachmentEvent = BaseEvent<Attachment> &
   (
     | {
-        name: "attachments.create";
-        modelId: string;
-        data: {
-          name: string;
-          source?: "import";
-        };
-      }
+      name: "attachments.create";
+      modelId: string;
+      data: {
+        name: string;
+        source?: "import";
+      };
+    }
     | {
-        name: "attachments.update";
-        modelId: string;
-      }
+      name: "attachments.update";
+      modelId: string;
+    }
     | {
-        name: "attachments.delete";
-        modelId: string;
-        data: {
-          name: string;
-        };
-      }
+      name: "attachments.delete";
+      modelId: string;
+      data: {
+        name: string;
+      };
+    }
   );
 
 export type AuthenticationProviderEvent = BaseEvent<AuthenticationProvider> & {
@@ -143,30 +145,30 @@ export type AuthenticationProviderEvent = BaseEvent<AuthenticationProvider> & {
 export type UserEvent = BaseEvent<User> &
   (
     | {
-        name:
-          | "users.signin"
-          | "users.signout"
-          | "users.update"
-          | "users.suspend"
-          | "users.activate"
-          | "users.delete";
-        userId: string;
-      }
+      name:
+      | "users.signin"
+      | "users.signout"
+      | "users.update"
+      | "users.suspend"
+      | "users.activate"
+      | "users.delete";
+      userId: string;
+    }
     | {
-        name: "users.create" | "users.promote" | "users.demote";
-        userId: string;
-        data: {
-          name: string;
-        };
-      }
+      name: "users.create" | "users.promote" | "users.demote";
+      userId: string;
+      data: {
+        name: string;
+      };
+    }
     | {
-        name: "users.invite";
-        userId: string;
-        data: {
-          email: string;
-          name: string;
-        };
-      }
+      name: "users.invite";
+      userId: string;
+      data: {
+        email: string;
+        name: string;
+      };
+    }
   );
 
 export type UserMembershipEvent = BaseEvent<UserMembership> & {
@@ -179,71 +181,73 @@ export type UserMembershipEvent = BaseEvent<UserMembership> & {
   };
 };
 
+export type DocumentMovedEvent = BaseEvent<Document> & {
+  name: "documents.move";
+  documentId: string;
+  collectionId: string;
+  data: {
+    collectionIds: string[];
+    documentIds: string[];
+  };
+};
+
 export type DocumentEvent = BaseEvent<Document> &
   (
     | {
-        name:
-          | "documents.create"
-          | "documents.publish"
-          | "documents.delete"
-          | "documents.permanent_delete"
-          | "documents.archive"
-          | "documents.restore";
-        documentId: string;
-        collectionId: string;
-        data: {
-          title: string;
-          source?: "import";
-        };
-      }
+      name:
+      | "documents.create"
+      | "documents.publish"
+      | "documents.delete"
+      | "documents.permanent_delete"
+      | "documents.archive"
+      | "documents.restore";
+      documentId: string;
+      collectionId: string;
+      data: {
+        title: string;
+        source?: "import";
+      };
+    }
     | {
-        name: "documents.unpublish";
-        documentId: string;
-        collectionId: string;
-      }
+      name: "documents.unpublish";
+      documentId: string;
+      collectionId: string;
+    }
     | {
-        name: "documents.unarchive";
-        documentId: string;
-        collectionId: string;
-        data: {
-          title: string;
-          /** Id of collection from which the document is unarchived */
-          sourceCollectionId: string;
-        };
-      }
+      name: "documents.unarchive";
+      documentId: string;
+      collectionId: string;
+      data: {
+        title: string;
+        /** Id of collection from which the document is unarchived */
+        sourceCollectionId: string;
+      };
+    }
     | {
-        name: "documents.move";
-        documentId: string;
-        collectionId: string;
-        data: {
-          collectionIds: string[];
-          documentIds: string[];
-        };
-      }
+      name:
+      | "documents.update"
+      | "documents.update.delayed"
+      | "documents.update.debounced";
+      documentId: string;
+      collectionId: string;
+      createdAt: string;
+      data: {
+        title: string;
+        autosave: boolean;
+        done: boolean;
+      };
+    }
     | {
-        name:
-          | "documents.update"
-          | "documents.update.delayed"
-          | "documents.update.debounced";
-        documentId: string;
-        collectionId: string;
-        createdAt: string;
-        data: {
-          title: string;
-          autosave: boolean;
-          done: boolean;
-        };
-      }
-    | {
-        name: "documents.title_change";
-        documentId: string;
-        collectionId: string;
-        createdAt: string;
-        data: {
-          title: string;
-          previousTitle: string;
-        };
-      }
+      name: "documents.title_change";
+      documentId: string;
+      collectionId: string;
+      createdAt: string;
+      data: {
+        title: string;
+        previousTitle: string;
+      };
+    }
+    | DocumentMovedEvent
   );
 
 export type EmptyTrashEvent = {
@@ -255,15 +259,14 @@ export type EmptyTrashEvent = {
 export type RevisionEvent = BaseEvent<Revision> & {
   name: "revisions.create";
   documentId: string;
-  collectionId: string;
   modelId: string;
 };
 
 export type FileOperationEvent = BaseEvent<FileOperation> & {
   name:
-    | "fileOperations.create"
-    | "fileOperations.update"
-    | "fileOperations.delete";
+  | "fileOperations.create"
+  | "fileOperations.update"
+  | "fileOperations.delete";
   modelId: string;
   data: Partial<FileOperation>;
 };
@@ -305,44 +308,17 @@ export type DocumentGroupEvent = BaseEvent<GroupMembership> & {
   };
 };
 
-export type CollectionEvent = BaseEvent<Collection> &
-  (
-    | {
-        name: "collections.create";
-        collectionId: string;
-        data: {
-          name: string;
-          source?: "import";
-        };
-      }
-    | {
-        name:
-          | "collections.update"
-          | "collections.delete"
-          | "collections.archive"
-          | "collections.restore";
-        collectionId: string;
-        data: {
-          name: string;
-          archivedAt: string;
-        };
-      }
-    | {
-        name: "collections.move";
-        collectionId: string;
-        data: {
-          index: string;
-        };
-      }
-    | {
-        name: "collections.permission_changed";
-        collectionId: string;
-        data: {
-          privacyChanged: boolean;
-          sharingChanged: boolean;
-        };
-      }
-  );
+export type CollectionEvent = BaseEvent<Collection> & {
+  name:
+  | "collections.create"
+  | "collections.update"
+  | "collections.delete"
+  | "collections.archive"
+  | "collections.restore"
+  | "collections.move"
+  | "collections.permission_changed";
+  collectionId: string;
+};
 
 export type GroupUserEvent = BaseEvent<UserMembership> & {
   name: "groups.add_user" | "groups.remove_user";
@@ -354,9 +330,9 @@ export type GroupEvent = BaseEvent<Group> &
   (
     | GroupUserEvent
     | {
-        name: "groups.create" | "groups.delete" | "groups.update";
-        modelId: string;
-      }
+      name: "groups.create" | "groups.delete" | "groups.update";
+      modelId: string;
+    }
   );
 
 export type IntegrationEvent = BaseEvent<Integration> & {
@@ -396,19 +372,19 @@ export type CommentReactionEvent = BaseEvent<Comment> & {
 
 export type CommentEvent =
   | (BaseEvent<Comment> & {
-      name: "comments.create";
-      modelId: string;
-      documentId: string;
-      actorId: string;
-    })
+    name: "comments.create";
+    modelId: string;
+    documentId: string;
+    actorId: string;
+  })
   | CommentUpdateEvent
   | (BaseEvent<Comment> & {
-      name: "comments.delete";
-      modelId: string;
-      documentId: string;
-      actorId: string;
-      collectionId: string;
-    })
+    name: "comments.delete";
+    modelId: string;
+    documentId: string;
+    actorId: string;
+    collectionId: string;
+  })
   | CommentReactionEvent;
 
 export type StarEvent = BaseEvent<Star> & {
@@ -447,9 +423,9 @@ export type WebhookDeliveryStatus = "pending" | "success" | "failed";
 
 export type WebhookSubscriptionEvent = BaseEvent<WebhookSubscription> & {
   name:
-    | "webhookSubscriptions.create"
-    | "webhookSubscriptions.delete"
-    | "webhookSubscriptions.update";
+  | "webhookSubscriptions.create"
+  | "webhookSubscriptions.delete"
+  | "webhookSubscriptions.update";
   modelId: string;
   data: {
     name: string;
@@ -470,13 +446,18 @@ export type NotificationEvent = BaseEvent<Notification> & {
   membershipId?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type OAuthClientEvent = BaseEvent<OAuthClient> & {
+  name: "oauthClients.create" | "oauthClients.update" | "oauthClients.delete";
+  modelId: string;
+};
+
+// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 export type ImportEvent = BaseEvent<Import<any>> & {
   name:
-    | "imports.create"
-    | "imports.update"
-    | "imports.processed"
-    | "imports.delete";
+  | "imports.create"
+  | "imports.update"
+  | "imports.processed"
+  | "imports.delete";
   modelId: string;
 };
 
@@ -486,6 +467,7 @@ export type Event =
   | AuthenticationProviderEvent
   | DocumentEvent
   | DocumentUserEvent
+  | DocumentMovedEvent
   | DocumentGroupEvent
   | PinEvent
   | CommentEvent
@@ -505,6 +487,7 @@ export type Event =
   | ViewEvent
   | WebhookSubscriptionEvent
   | NotificationEvent
+  | OAuthClientEvent
   | EmptyTrashEvent
   | ImportEvent;
 
@@ -536,7 +519,7 @@ export type DocumentJSONExport = {
   emoji?: string | null;
   icon: string | null;
   color: string | null;
-  data: Record<string, any>;
+  data: ProsemirrorData;
   createdById: string;
   createdByName: string;
   createdByEmail: string | null;
@@ -563,7 +546,7 @@ export type CollectionJSONExport = {
     urlId: string;
     name: string;
     data?: ProsemirrorData | null;
-    description?: ProsemirrorData | null;
+    description?: string | null;
     permission?: CollectionPermission | null;
     color?: string | null;
     icon?: string | null;
@@ -578,20 +561,19 @@ export type CollectionJSONExport = {
   };
 };
 
-export type UnfurlIssueAndPR = (
+export type UnfurlIssueOrPR =
   | UnfurlResponse[UnfurlResourceType.Issue]
-  | UnfurlResponse[UnfurlResourceType.PR]
-) & { transformed_unfurl: true };
+  | UnfurlResponse[UnfurlResourceType.PR];
 
 export type Unfurl =
-  | UnfurlIssueAndPR
+  | UnfurlIssueOrPR
   | {
-      type: Exclude<
-        UnfurlResourceType,
-        UnfurlResourceType.Issue | UnfurlResourceType.PR
-      >;
-      [x: string]: JSONValue;
-    };
+    type: Exclude<
+      UnfurlResourceType,
+      UnfurlResourceType.Issue | UnfurlResourceType.PR
+    >;
+    [x: string]: JSONValue;
+  };
 
 export type UnfurlError = { error: string };
 

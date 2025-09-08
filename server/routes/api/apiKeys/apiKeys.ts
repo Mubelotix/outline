@@ -15,7 +15,10 @@ const router = new Router();
 
 router.post(
   "apiKeys.create",
-  auth({ role: UserRole.Member, type: AuthenticationType.APP }),
+  auth({
+    role: UserRole.Member,
+    type: AuthenticationType.APP,
+  }),
   validate(T.APIKeysCreateSchema),
   transaction(),
   async (ctx: APIContext<T.APIKeysCreateReq>) => {
@@ -30,6 +33,8 @@ router.post(
       expiresAt,
       scope: scope?.map((s) => (s.startsWith("/api/") ? s : `/api/${s}`)),
     });
+
+    apiKey.user = user;
 
     ctx.body = {
       data: presentApiKey(apiKey),
@@ -90,7 +95,10 @@ router.post(
 
 router.post(
   "apiKeys.delete",
-  auth({ role: UserRole.Member }),
+  auth({
+    role: UserRole.Member,
+    type: AuthenticationType.APP,
+  }),
   validate(T.APIKeysDeleteSchema),
   transaction(),
   async (ctx: APIContext<T.APIKeysDeleteReq>) => {
@@ -98,8 +106,11 @@ router.post(
     const { user } = ctx.state.auth;
     const { transaction } = ctx.state;
 
-    const key = await ApiKey.findByPk(id, {
-      lock: transaction.LOCK.UPDATE,
+    const key = await ApiKey.scope("withUser").findByPk(id, {
+      lock: {
+        level: transaction.LOCK.UPDATE,
+        of: ApiKey,
+      },
       transaction,
     });
     authorize(user, "delete", key);

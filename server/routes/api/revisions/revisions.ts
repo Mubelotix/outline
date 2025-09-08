@@ -1,5 +1,7 @@
 import Router from "koa-router";
+import contentDisposition from "content-disposition";
 import { Op } from "sequelize";
+import { UserRole } from "@shared/types";
 import { RevisionHelper } from "@shared/utils/RevisionHelper";
 import slugify from "@shared/utils/slugify";
 import { ValidationError } from "@server/errors";
@@ -93,6 +95,37 @@ router.post(
 );
 
 router.post(
+  "revisions.delete",
+  auth({ role: UserRole.Admin }),
+  validate(T.RevisionsDeleteSchema),
+  transaction(),
+  async (ctx: APIContext<T.RevisionsDeleteReq>) => {
+    const { id } = ctx.input.body;
+    const { user } = ctx.state.auth;
+    const { transaction } = ctx.state;
+
+    const revision = await Revision.findByPk(id, {
+      rejectOnEmpty: true,
+      lock: {
+        of: Revision,
+        level: transaction.LOCK.UPDATE,
+      },
+    });
+    const document = await Document.findByPk(revision.documentId, {
+      userId: user.id,
+    });
+    authorize(user, "read", document);
+    authorize(user, "delete", revision);
+
+    await revision.destroyWithCtx(ctx);
+
+    ctx.body = {
+      success: true,
+    };
+  }
+);
+
+router.post(
   "revisions.diff",
   auth(),
   validate(T.RevisionsDiffSchema),
@@ -134,7 +167,12 @@ router.post(
     if (accept?.includes("text/html")) {
       const name = `${slugify(document.titleWithDefault)}-${revision.id}.html`;
       ctx.set("Content-Type", "text/html");
-      ctx.attachment(name);
+      ctx.set(
+        "Content-Disposition",
+        contentDisposition(name, {
+          type: "attachment",
+        })
+      );
       ctx.body = content;
       return;
     }
@@ -168,6 +206,7 @@ router.post(
       order: [[sort, direction]],
       offset: ctx.state.pagination.offset,
       limit: ctx.state.pagination.limit,
+      paranoid: false,
     });
     const data = await Promise.all(
       revisions.map((revision) => presentRevision(revision))

@@ -1,10 +1,10 @@
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { m } from "framer-motion";
 import { action } from "mobx";
 import { observer } from "mobx-react";
 import { ImageIcon } from "outline-icons";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { VisuallyHidden } from "reakit";
 import { toast } from "sonner";
 import { useTheme } from "styled-components";
 import { v4 as uuidv4 } from "uuid";
@@ -53,6 +53,8 @@ type Props = {
   onFocus?: () => void;
   /** Callback when the editor is blurred */
   onBlur?: () => void;
+  /** Callback when user presses up arrow at the start of the editor */
+  onUpArrowAtStart?: () => void;
 };
 
 function CommentForm({
@@ -63,6 +65,7 @@ function CommentForm({
   onSaveDraft,
   onFocus,
   onBlur,
+  onUpArrowAtStart,
   autoFocus,
   standalone,
   placeholder,
@@ -227,6 +230,13 @@ function CommentForm({
     file.current?.click();
   };
 
+  const handleUpArrowAtStart = () => {
+    if (onUpArrowAtStart) {
+      onUpArrowAtStart();
+      setInputFocused(false);
+    }
+  };
+
   // Focus the editor when it's a new comment just mounted, after a delay as the
   // editor is mounted within a fade transition.
   React.useEffect(() => {
@@ -266,7 +276,7 @@ function CommentForm({
       {...presence}
       {...rest}
     >
-      <VisuallyHidden>
+      <VisuallyHidden.Root>
         <input
           ref={file}
           type="file"
@@ -274,7 +284,7 @@ function CommentForm({
           accept={AttachmentValidation.imageContentTypes.join(", ")}
           tabIndex={-1}
         />
-      </VisuallyHidden>
+      </VisuallyHidden.Root>
       <Flex gap={8} align="flex-start" reverse={dir === "rtl"}>
         <Avatar model={user} size={24} style={{ marginTop: 8 }} />
         <Bubble
@@ -296,6 +306,7 @@ function CommentForm({
             onSave={handleSave}
             onFocus={handleFocus}
             onBlur={handleBlur}
+            onUpArrowAtStart={handleUpArrowAtStart}
             maxLength={CommentValidation.maxLength}
             placeholder={
               placeholder ||

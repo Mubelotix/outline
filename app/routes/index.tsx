@@ -1,4 +1,4 @@
-import * as React from "react";
+import { Suspense } from "react";
 import { Switch, Redirect } from "react-router-dom";
 import DesktopRedirect from "~/scenes/DesktopRedirect";
 import DelayedMount from "~/components/DelayedMount";
@@ -6,20 +6,21 @@ import FullscreenLoading from "~/components/FullscreenLoading";
 import Route from "~/components/ProfiledRoute";
 import env from "~/env";
 import useQueryNotices from "~/hooks/useQueryNotices";
-import lazyWithRetry from "~/utils/lazyWithRetry";
-import { matchDocumentSlug as slug } from "~/utils/routeHelpers";
+import lazy from "~/utils/lazyWithRetry";
+import { matchDocumentSlug as documentSlug } from "~/utils/routeHelpers";
 
-const Authenticated = lazyWithRetry(() => import("~/components/Authenticated"));
-const AuthenticatedRoutes = lazyWithRetry(() => import("./authenticated"));
-const SharedDocument = lazyWithRetry(() => import("~/scenes/Document/Shared"));
-const Login = lazyWithRetry(() => import("~/scenes/Login"));
-const Logout = lazyWithRetry(() => import("~/scenes/Logout"));
+const Authenticated = lazy(() => import("~/components/Authenticated"));
+const AuthenticatedRoutes = lazy(() => import("./authenticated"));
+const Shared = lazy(() => import("~/scenes/Shared"));
+const Login = lazy(() => import("~/scenes/Login"));
+const Logout = lazy(() => import("~/scenes/Logout"));
+const OAuthAuthorize = lazy(() => import("~/scenes/Login/OAuthAuthorize"));
 
 export default function Routes() {
   useQueryNotices();
 
   return (
-    <React.Suspense
+    <Suspense
       fallback={
         <DelayedMount delay={2000}>
           <FullscreenLoading />
@@ -28,13 +29,13 @@ export default function Routes() {
     >
       {env.ROOT_SHARE_ID ? (
         <Switch>
-          <Route exact path="/" component={SharedDocument} />
-          <Route exact path={`/doc/${slug}`} component={SharedDocument} />
+          <Route exact path="/" component={Shared} />
+          <Route exact path={`/doc/${documentSlug}`} component={Shared} />
           <Redirect exact from="/s/:shareId" to="/" />
           <Redirect
             exact
-            from={`/s/:shareId/doc/${slug}`}
-            to={`/doc/${slug}`}
+            from={`/s/:shareId/doc/${documentSlug}`}
+            to={`/doc/${documentSlug}`}
           />
         </Switch>
       ) : (
@@ -43,19 +44,20 @@ export default function Routes() {
           <Route exact path="/create" component={Login} />
           <Route exact path="/logout" component={Logout} />
           <Route exact path="/desktop-redirect" component={DesktopRedirect} />
+          <Route exact path="/oauth/authorize" component={OAuthAuthorize} />
 
           <Redirect exact from="/share/:shareId" to="/s/:shareId" />
-          <Route exact path="/s/:shareId" component={SharedDocument} />
+          <Route exact path="/s/:shareId" component={Shared} />
 
           <Redirect
             exact
-            from={`/share/:shareId/doc/${slug}`}
-            to={`/s/:shareId/doc/${slug}`}
+            from={`/share/:shareId/doc/${documentSlug}`}
+            to={`/s/:shareId/doc/${documentSlug}`}
           />
           <Route
             exact
-            path={`/s/:shareId/doc/${slug}`}
-            component={SharedDocument}
+            path={`/s/:shareId/doc/${documentSlug}`}
+            component={Shared}
           />
 
           <Authenticated>
@@ -63,6 +65,6 @@ export default function Routes() {
           </Authenticated>
         </Switch>
       )}
-    </React.Suspense>
+    </Suspense>
   );
 }

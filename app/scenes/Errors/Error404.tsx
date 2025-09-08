@@ -1,4 +1,3 @@
-import * as React from "react";
 import { useTranslation, Trans } from "react-i18next";
 import Flex from "@shared/components/Flex";
 import Button from "~/components/Button";
@@ -26,7 +25,7 @@ const Error404 = () => {
           </Trans>
         </Empty>
         <Flex gap={8}>
-          <Button action={navigateToHome} context={context} hideIcon>
+          <Button action={navigateToHome} context={context} neutral hideIcon>
             {t("Home")}
           </Button>
           <Button action={navigateToSearch} context={context} neutral>

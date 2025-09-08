@@ -1,4 +1,4 @@
-/* eslint-disable no-irregular-whitespace */
+/* oxlint-disable no-irregular-whitespace */
 import { lighten, transparentize } from "polished";
 import styled, { DefaultTheme, css, keyframes } from "styled-components";
 import { hover } from "../../styles";
@@ -9,6 +9,7 @@ export type Props = {
   rtl: boolean;
   readOnly?: boolean;
   readOnlyWriteCheckboxes?: boolean;
+  commenting?: boolean;
   staticHTML?: boolean;
   editorStyle?: React.CSSProperties;
   grow?: boolean;
@@ -55,7 +56,7 @@ const mathStyle = (props: Props) => css`
     cursor: auto;
     white-space: pre-wrap;
     overflow-x: auto;
-    overflow-y: none;
+    overflow-y: hidden;
   }
 
   .math-node.empty-math .math-render::before {
@@ -370,6 +371,7 @@ width: 100%;
   h6 {
     margin-top: 1em;
     margin-bottom: 0.25em;
+    line-height: inherit;
     font-weight: 600;
     cursor: text;
 
@@ -593,7 +595,7 @@ iframe.embed {
   max-width: 100vw;
   clear: both;
   position: initial;
-  transform: translateX(calc(50% + var(--container-width) * -0.5));
+  transform: translateX(calc(50% + var(--container-width) * -0.5 + var(--full-width-transform-offset)));
 
   img {
     max-width: 100vw;
@@ -606,7 +608,7 @@ iframe.embed {
 .${EditorStyleHelper.tableFullWidth} {
   transform: translateX(calc(50% + ${
     EditorStyleHelper.padding
-  }px + var(--container-width) * -0.5));
+  }px + var(--container-width) * -0.5 + var(--full-width-transform-offset)));
 
   .${EditorStyleHelper.tableScrollable},
   table {
@@ -691,6 +693,9 @@ img.ProseMirror-separator {
 .component-image + img.ProseMirror-separator + br.ProseMirror-trailingBreak {
   display: none;
 }
+.component-image img {
+  cursor: zoom-in;
+}
 
 .${EditorStyleHelper.imageCaption} {
   border: 0;
@@ -708,6 +713,7 @@ img.ProseMirror-separator {
   resize: none;
   user-select: text;
   margin: 0 auto !important;
+  width: 100%;
   max-width: 100vw;
 }
 
@@ -791,7 +797,7 @@ h6:not(.placeholder)::before {
   h4,
   h5,
   h6 {
-    &:not(.placeholder):before {
+    &:not(.placeholder)::before {
       opacity: 1;
     }
   }
@@ -928,6 +934,9 @@ h6 {
   opacity: 1;
 }
 
+${
+  props.commenting
+    ? `
 .${EditorStyleHelper.comment} {
   &:not([data-resolved]):not([data-draft]), &[data-draft][data-user-id="${
     props.userId ?? ""
@@ -941,6 +950,14 @@ h6 {
       background: ${props.theme.commentMarkBackground};
     }
   }
+}
+`
+    : `
+.${EditorStyleHelper.comment} {
+  background: transparent !important;
+  border: none !important;
+}
+`
 }
 
 .notice-block {
@@ -1089,6 +1106,10 @@ p a {
     text-decoration-color: ${props.theme.text};
     text-decoration-thickness: 1px;
   }
+}
+
+.heading-content a {
+  font-weight: inherit;
 }
 
 a {
@@ -1305,6 +1326,9 @@ hr.page-break::before {
 
 .math-inline .math-src .ProseMirror,
 code {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+
   border-radius: 4px;
   border: 1px solid ${props.theme.codeBorder};
   background: ${props.theme.codeBackground};
@@ -1312,6 +1336,10 @@ code {
   color: ${props.theme.codeString};
   font-family: ${props.theme.fontFamilyMono};
   font-size: 90%;
+
+  .${EditorStyleHelper.codeWord} {
+    white-space: nowrap;
+  }
 }
 
 mark {
@@ -1750,8 +1778,8 @@ table {
 
   &:hover {
     scrollbar-color: ${props.theme.scrollbarThumb} ${
-  props.theme.scrollbarBackground
-};
+      props.theme.scrollbarBackground
+    };
   }
 
   & ::-webkit-scrollbar {

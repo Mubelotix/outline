@@ -1,7 +1,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import styled from "styled-components";
-import { s } from "@shared/styles";
+import { s, truncateMultiline } from "@shared/styles";
 
 type Props = Omit<React.HTMLAttributes<HTMLInputElement>, "onSubmit"> & {
   /** A callback when the title is submitted. */
@@ -64,11 +64,12 @@ function EditableTitle(
     async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      setIsEditing(false);
+
       const trimmedValue = value.trim();
 
       if (trimmedValue === originalValue || trimmedValue.length === 0) {
         setValue(originalValue);
+        setIsEditing(false);
         onCancel?.();
         return;
       }
@@ -80,6 +81,8 @@ function EditableTitle(
         setValue(originalValue);
         toast.error(error.message);
         throw error;
+      } finally {
+        setIsEditing(false);
       }
     },
     [originalValue, value, onCancel, onSubmit]
@@ -125,16 +128,20 @@ function EditableTitle(
           />
         </form>
       ) : (
-        <span
+        <Text
           onDoubleClick={canUpdate ? handleDoubleClick : undefined}
           className={rest.className}
         >
           {value}
-        </span>
+        </Text>
       )}
     </>
   );
 }
+
+const Text = styled.span`
+  ${truncateMultiline(3)}
+`;
 
 const Input = styled.input`
   color: ${s("text")};

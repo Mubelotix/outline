@@ -1,3 +1,4 @@
+import Storage from "@shared/utils/Storage";
 import copy from "copy-to-clipboard";
 import {
   BeakerIcon,
@@ -7,7 +8,6 @@ import {
   TrashIcon,
   UserIcon,
 } from "outline-icons";
-import * as React from "react";
 import { toast } from "sonner";
 import { createAction } from "~/actions";
 import { DeveloperSection } from "~/actions/sections";
@@ -107,8 +107,8 @@ export const startTyping = createAction({
     }, 250);
 
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        intervalId && clearInterval(intervalId);
+      if (event.key === "Escape" && intervalId) {
+        clearInterval(intervalId);
       }
     });
 
@@ -125,6 +125,17 @@ export const clearIndexedDB = createAction({
     history.push(homePath());
     await deleteAllDatabases();
     toast.success(t("IndexedDB cache cleared"));
+  },
+});
+
+export const clearStorage = createAction({
+  name: ({ t }) => t("Clear local storage"),
+  icon: <TrashIcon />,
+  keywords: "cache clear localstorage",
+  section: DeveloperSection,
+  perform: ({ t }) => {
+    Storage.clear();
+    toast.success(t("Local storage cleared"));
   },
 });
 
@@ -202,6 +213,7 @@ export const developer = createAction({
     createToast,
     createTestUsers,
     clearIndexedDB,
+    clearStorage,
     startTyping,
   ],
 });

@@ -21,21 +21,19 @@ export default abstract class BaseTask<T extends Record<string, any>> {
   static cron: TaskSchedule | undefined;
 
   /**
-   * Schedule this task type to be processed asyncronously by a worker.
+   * Schedule this task type to be processed asynchronously by a worker.
    *
    * @param props Properties to be used by the task
+   * @param options Job options such as priority and retry strategy, as defined by Bull.
    * @returns A promise that resolves once the job is placed on the task queue
    */
-  public static schedule<T>(props?: T, options?: JobOptions): Promise<Job> {
-    // @ts-expect-error cannot create an instance of an abstract class, we wont
-    const task = new this();
-
+  public schedule(props: T, options?: JobOptions): Promise<Job> {
     return taskQueue.add(
       {
-        name: this.name,
+        name: this.constructor.name,
         props,
       },
-      { ...options, ...task.options }
+      { ...options, ...this.options }
     );
   }
 
@@ -53,7 +51,7 @@ export default abstract class BaseTask<T extends Record<string, any>> {
    * @param props Properties to be used by the task
    * @returns A promise that resolves once the task handles the failure.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // oxlint-disable-next-line @typescript-eslint/no-unused-vars
   public onFailed(props: T): Promise<void> {
     return Promise.resolve();
   }

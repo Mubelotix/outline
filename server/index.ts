@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
-/* eslint-disable import/order */
+/* oxlint-disable @typescript-eslint/no-misused-promises */
+/* oxlint-disable import/order */
 import env from "./env";
 
 import "./logging/tracer"; // must come before importing any instrumented module
@@ -13,6 +13,7 @@ import Router from "koa-router";
 import { AddressInfo } from "net";
 import stoppable from "stoppable";
 import throng from "throng";
+import escape from "lodash/escape";
 import Logger from "./logging/Logger";
 import services from "./services";
 import { getArg } from "./utils/args";
@@ -23,19 +24,19 @@ import { checkUpdates } from "./utils/updates";
 import onerror from "./onerror";
 import ShutdownHelper, { ShutdownOrder } from "./utils/ShutdownHelper";
 import { checkConnection, sequelize } from "./storage/database";
-import RedisAdapter from "./storage/redis";
-import Metrics from "./logging/Metrics";
+import Redis from "@server/storage/redis";
+import Metrics from "@server/logging/Metrics";
 import { PluginManager } from "./utils/PluginManager";
 
 // The number of processes to run, defaults to the number of CPU's available
-// for the web service, and 1 for collaboration during the beta period.
+// for the web service, and 1 for collaboration unless REDIS_COLLABORATION_URL is set.
 let webProcessCount = env.WEB_CONCURRENCY;
 
-if (env.SERVICES.includes("collaboration")) {
+if (env.SERVICES.includes("collaboration") && !env.REDIS_COLLABORATION_URL) {
   if (webProcessCount !== 1) {
     Logger.info(
       "lifecycle",
-      "Note: Restricting process count to 1 due to use of collaborative service"
+      "Note: Restricting process count to 1 due to use of collaborative service without REDIS_COLLABORATION_URL"
     );
   }
 
@@ -88,13 +89,53 @@ async function start(_id: number, disconnect: () => void) {
   app.use(defaultRateLimiter());
 
   /** Perform a redirect on the browser so that the user's auth cookies are included in the request. */
-  app.context.redirectOnClient = function (url: string) {
+  app.context.redirectOnClient = function (
+    /** The URL to redirect to */
+    url: string,
+    /**
+     * The HTTP method to use for the redirect. Use POST when preventing links in emails from being
+     * clicked by bots. Otherwise, use GET.
+     */
+    method: "GET" | "POST" = "GET"
+  ) {
     this.type = "text/html";
-    this.body = `
+
+    if (method === "POST") {
+      // For POST method, create a form that auto-submits
+      const urlObj = new URL(url);
+      const formAction = `${urlObj.origin}${urlObj.pathname}`;
+      const searchParams = urlObj.searchParams;
+
+      let formFields = "";
+      searchParams.forEach((value, key) => {
+        formFields += `<input type="hidden" name="${escape(
+          key
+        )}" value="${escape(value)}" />`;
+      });
+
+      this.body = `
 <html>
 <head>
-<meta http-equiv="refresh" content="0;URL='${url}'"/>
-</head>`;
+  <title>Redirecting…</title>
+</head>
+<body>
+  <form id="redirect-form" method="POST" action="${formAction}">
+    ${formFields}
+  </form>
+  <script nonce="${this.state.cspNonce}">
+    document.getElementById('redirect-form').submit();
+  </script>
+</body>
+</html>`;
+    } else {
+      // Default GET method using meta refresh
+      this.body = `
+<html>
+<head>
+<meta http-equiv="refresh" content="0;URL='${escape(url)}'" />
+</head>
+</html>`;
+    }
   };
 
   // Add a health check endpoint to all services
@@ -108,7 +149,7 @@ async function start(_id: number, disconnect: () => void) {
     }
 
     try {
-      await RedisAdapter.defaultClient.ping();
+      await Redis.defaultClient.ping();
     } catch (err) {
       Logger.error("Redis ping failed", err);
       ctx.status = 500;
@@ -128,12 +169,12 @@ async function start(_id: number, disconnect: () => void) {
 
     Logger.info("lifecycle", `Starting ${name} service`);
     const init = services[name as keyof typeof services];
-    init(app, server as https.Server, env.SERVICES);
+    await init(app, server as https.Server, env.SERVICES);
   }
 
   server.on("error", (err) => {
     if ("code" in err && err.code === "EADDRINUSE") {
-      Logger.error(`Port ${normalizedPort}  is already in use. Exiting…`, err);
+      Logger.error(`Port ${normalizedPort} is already in use. Exiting…`, err);
       process.exit(0);
     }
 

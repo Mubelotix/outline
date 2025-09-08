@@ -46,6 +46,10 @@ export default createGlobalStyle<Props>`
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+
+    width: 100vw;
+    overflow-x: hidden;
+    padding-right: calc(0 - var(--removed-body-scroll-bar-size)) !important;
   }
 
   @media (min-width: ${breakpoints.tablet}px) {
@@ -112,5 +116,12 @@ export default createGlobalStyle<Props>`
     outline-color: ${s("accent")};
     outline-offset: -1px;
     outline-width: initial;
+  }
+
+  :root {
+    --sat: env(safe-area-inset-top);
+    --sar: env(safe-area-inset-right);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
   }
 `;

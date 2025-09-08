@@ -1,4 +1,3 @@
-import * as React from "react";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import Flex from "@shared/components/Flex";
@@ -31,8 +30,6 @@ export function PermissionAction({
           permissions={permissions}
           onChange={onChange}
           value={permission}
-          labelHidden
-          nude
         />
         <ButtonSmall action={action} context={context}>
           {t("Add")}

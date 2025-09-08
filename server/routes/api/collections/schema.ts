@@ -1,10 +1,12 @@
 import isUndefined from "lodash/isUndefined";
+import isUUID from "validator/lib/isUUID";
 import { z } from "zod";
 import {
   CollectionPermission,
   CollectionStatusFilter,
   FileOperationFormat,
 } from "@shared/types";
+import { UrlHelper } from "@shared/utils/UrlHelper";
 import { Collection } from "@server/models";
 import { zodIconType, zodIdType } from "@server/utils/zod";
 import { ValidateColor, ValidateIndex } from "@server/validation";
@@ -43,13 +45,20 @@ export const CollectionsCreateSchema = BaseSchema.extend({
         message: `Must be ${ValidateIndex.maxLength} or fewer characters long`,
       })
       .optional(),
+    commenting: z.boolean().nullish(),
   }),
 });
 
 export type CollectionsCreateReq = z.infer<typeof CollectionsCreateSchema>;
 
 export const CollectionsInfoSchema = BaseSchema.extend({
-  body: BaseIdSchema,
+  body: BaseIdSchema.extend({
+    /** Share Id, if available */
+    shareId: z
+      .string()
+      .refine((val) => isUUID(val) || UrlHelper.SHARE_URL_SLUG_REGEX.test(val))
+      .optional(),
+  }),
 });
 
 export type CollectionsInfoReq = z.infer<typeof CollectionsInfoSchema>;
@@ -170,6 +179,7 @@ export const CollectionsUpdateSchema = BaseSchema.extend({
       })
       .optional(),
     sharing: z.boolean().optional(),
+    commenting: z.boolean().nullish(),
   }),
 });
 

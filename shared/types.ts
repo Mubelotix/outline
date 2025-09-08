@@ -1,8 +1,16 @@
+/** Available user roles. */
 export enum UserRole {
   Admin = "admin",
   Member = "member",
   Viewer = "viewer",
   Guest = "guest",
+}
+
+/** Scopes for OAuth and API keys. */
+export enum Scope {
+  Read = "read",
+  Write = "write",
+  Create = "create",
 }
 
 export type DateFilter = "day" | "week" | "month" | "year";
@@ -117,6 +125,7 @@ export enum IntegrationService {
   Matomo = "matomo",
   Umami = "umami",
   GitHub = "github",
+  Linear = "linear",
   Notion = "notion",
 }
 
@@ -131,11 +140,12 @@ export const ImportableIntegrationService = {
 
 export type IssueTrackerIntegrationService = Extract<
   IntegrationService,
-  IntegrationService.GitHub
+  IntegrationService.GitHub | IntegrationService.Linear
 >;
 
 export const IssueTrackerIntegrationService = {
   GitHub: IntegrationService.GitHub,
+  Linear: IntegrationService.Linear,
 } as const;
 
 export type UserCreatableIntegrationService = Extract<
@@ -167,39 +177,53 @@ export enum DocumentPermission {
   Admin = "admin",
 }
 
+export enum GroupPermission {
+  Member = "member",
+  Admin = "admin",
+}
+
 export type IntegrationSettings<T> = T extends IntegrationType.Embed
   ? {
-      url: string;
+      url?: string;
       github?: {
         installation: {
           id: number;
           account: { id: number; name: string; avatarUrl: string };
         };
       };
+      linear?: {
+        workspace: { id: string; name: string; key: string; logoUrl?: string };
+      };
     }
   : T extends IntegrationType.Analytics
-  ? { measurementId: string; instanceUrl?: string; scriptName?: string }
-  : T extends IntegrationType.Post
-  ? { url: string; channel: string; channelId: string }
-  : T extends IntegrationType.Command
-  ? { serviceTeamId: string }
-  : T extends IntegrationType.Import
-  ? { externalWorkspace: { id: string; name: string; iconUrl?: string } }
-  :
-      | { url: string }
-      | {
-          github?: {
-            installation: {
-              id: number;
-              account: { id?: number; name: string; avatarUrl?: string };
-            };
-          };
-        }
-      | { url: string; channel: string; channelId: string }
-      | { serviceTeamId: string }
-      | { measurementId: string }
-      | { slack: { serviceTeamId: string; serviceUserId: string } }
-      | undefined;
+    ? { measurementId: string; instanceUrl?: string; scriptName?: string }
+    : T extends IntegrationType.Post
+      ? { url: string; channel: string; channelId: string }
+      : T extends IntegrationType.Command
+        ? { serviceTeamId: string }
+        : T extends IntegrationType.Import
+          ? {
+              externalWorkspace: { id: string; name: string; iconUrl?: string };
+            }
+          :
+              | { url: string }
+              | {
+                  github?: {
+                    installation: {
+                      id: number;
+                      account: {
+                        id?: number;
+                        name: string;
+                        avatarUrl?: string;
+                      };
+                    };
+                  };
+                }
+              | { url: string; channel: string; channelId: string }
+              | { serviceTeamId: string }
+              | { measurementId: string }
+              | { slack: { serviceTeamId: string; serviceUserId: string } }
+              | undefined;
 
 export enum UserPreference {
   /** Whether reopening the app should redirect to the last viewed document. */
@@ -328,6 +352,7 @@ export enum NotificationEventType {
   CreateCollection = "collections.create",
   CreateComment = "comments.create",
   ResolveComment = "comments.resolve",
+  ReactionsCreate = "reactions.create",
   MentionedInDocument = "documents.mentioned",
   MentionedInComment = "comments.mentioned",
   InviteAccepted = "emails.invite_accepted",
@@ -341,6 +366,10 @@ export enum NotificationChannelType {
   Email = "email",
   Chat = "chat",
 }
+
+export type NotificationData = {
+  emoji?: string;
+};
 
 export type NotificationSettings = {
   [event in NotificationEventType]?:
@@ -357,6 +386,7 @@ export const NotificationEventDefaults: Record<NotificationEventType, boolean> =
     [NotificationEventType.CreateCollection]: false,
     [NotificationEventType.CreateComment]: true,
     [NotificationEventType.ResolveComment]: true,
+    [NotificationEventType.ReactionsCreate]: true,
     [NotificationEventType.CreateRevision]: false,
     [NotificationEventType.MentionedInDocument]: true,
     [NotificationEventType.MentionedInComment]: true,
@@ -433,7 +463,12 @@ export type UnfurlResponse = {
     /** Issue's labels */
     labels: Array<{ name: string; color: string }>;
     /** Issue's status */
-    state: { name: string; color: string };
+    state: {
+      type?: string;
+      name: string;
+      color: string;
+      completionPercentage?: number;
+    };
     /** Issue's creation time */
     createdAt: string;
   };
@@ -451,7 +486,7 @@ export type UnfurlResponse = {
     /** Pull Request author */
     author: { name: string; avatarUrl: string };
     /** Pull Request status */
-    state: { name: string; color: string };
+    state: { name: string; color: string; draft?: boolean };
     /** Pull Request creation time */
     createdAt: string;
   };

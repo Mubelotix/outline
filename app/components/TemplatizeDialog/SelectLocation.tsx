@@ -1,16 +1,15 @@
 import { observer } from "mobx-react";
-import React from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AvatarSize } from "~/components/Avatar";
 import CollectionIcon from "~/components/Icons/CollectionIcon";
-import InputSelect, { Option } from "~/components/InputSelect";
+import { InputSelect, Option } from "~/components/InputSelect";
 import TeamLogo from "~/components/TeamLogo";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
 import usePolicy from "~/hooks/usePolicy";
 import useRequest from "~/hooks/useRequest";
 import useStores from "~/hooks/useStores";
-import Label from "./Label";
 
 type Props = {
   /** Collection ID to select by default. */
@@ -26,7 +25,7 @@ const SelectLocation = ({ defaultCollectionId, onSelect }: Props) => {
   const can = usePolicy(team);
 
   const { loading, error } = useRequest(
-    React.useCallback(async () => {
+    useCallback(async () => {
       if (!collections.isLoaded) {
         await collections.fetchAll({
           limit: 100,
@@ -37,30 +36,24 @@ const SelectLocation = ({ defaultCollectionId, onSelect }: Props) => {
 
   const workspaceOption: Option | null = can.createTemplate
     ? {
-        label: (
-          <Label
-            icon={<TeamLogo model={team} size={AvatarSize.Toast} />}
-            value={t("Workspace")}
-          />
-        ),
+        type: "item",
+        label: t("Workspace"),
         value: "workspace",
+        icon: <TeamLogo model={team} size={AvatarSize.Toast} />,
       }
     : null;
 
-  const collectionOptions: Option[] = React.useMemo(
+  const collectionOptions: Option[] = useMemo(
     () =>
       collections.orderedData.reduce<Option[]>((memo, collection) => {
         const canCollection = policies.abilities(collection.id);
 
         if (canCollection.createDocument) {
           memo.push({
-            label: (
-              <Label
-                icon={<CollectionIcon collection={collection} />}
-                value={collection.name}
-              />
-            ),
+            type: "item",
+            label: collection.name,
             value: collection.id,
+            icon: <CollectionIcon collection={collection} />,
           });
         }
 
@@ -71,20 +64,11 @@ const SelectLocation = ({ defaultCollectionId, onSelect }: Props) => {
 
   const options: Option[] = workspaceOption
     ? collectionOptions.length
-      ? [
-          workspaceOption,
-          ...collectionOptions.map((opt, idx) => {
-            if (idx !== 0) {
-              return opt;
-            }
-            opt.divider = true;
-            return opt;
-          }),
-        ]
+      ? [workspaceOption, { type: "separator" }, ...collectionOptions]
       : [workspaceOption]
     : collectionOptions;
 
-  const handleSelection = React.useCallback(
+  const handleSelection = useCallback(
     (value: string | null) => {
       onSelect(value === "workspace" ? null : value);
     },
@@ -101,10 +85,9 @@ const SelectLocation = ({ defaultCollectionId, onSelect }: Props) => {
 
   return (
     <InputSelect
-      value={defaultCollectionId ?? "workspace"}
       options={options}
+      value={defaultCollectionId ?? "workspace"}
       onChange={handleSelection}
-      ariaLabel={t("Location")}
       label={t("Location")}
     />
   );

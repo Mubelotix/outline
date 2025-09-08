@@ -1,5 +1,5 @@
 import concat from "lodash/concat";
-import React from "react";
+import * as React from "react";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import { EmojiCategory, EmojiSkinTone, IconType } from "@shared/types";
@@ -136,11 +136,12 @@ const EmojiPanel = ({
         freqEmojis,
       });
 
-  React.useEffect(() => {
-    if (scrollableRef.current) {
-      scrollableRef.current.scrollTop = 0;
+  React.useLayoutEffect(() => {
+    if (!panelActive) {
+      return;
     }
-    searchRef.current?.focus();
+    scrollableRef.current?.scroll({ top: 0 });
+    requestAnimationFrame(() => searchRef.current?.focus());
   }, [panelActive]);
 
   return (

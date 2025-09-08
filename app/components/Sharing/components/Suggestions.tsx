@@ -67,9 +67,9 @@ export const Suggestions = observer(
     });
 
     const fetchUsersByQuery = useThrottledCallback(
-      (query: string) => {
-        void users.fetchPage({ query });
-        void groups.fetchPage({ query });
+      (searchQuery: string) => {
+        void users.fetchPage({ query: searchQuery });
+        void groups.fetchPage({ query: searchQuery });
       },
       250,
       undefined,
@@ -93,11 +93,13 @@ export const Suggestions = observer(
     const suggestions = React.useMemo(() => {
       const filtered: Suggestion[] = (
         document
-          ? users.notInDocument(document.id, query)
+          ? users
+              .notInDocument(document.id, query)
+              .filter((u) => u.id !== user.id)
           : collection
-          ? users.notInCollection(collection.id, query)
-          : users.activeOrInvited
-      ).filter((u) => !u.isSuspended && u.id !== user.id);
+            ? users.notInCollection(collection.id, query)
+            : users.activeOrInvited
+      ).filter((u) => !u.isSuspended);
 
       if (isEmail(query)) {
         filtered.push(getSuggestionForEmail(query));
@@ -107,8 +109,8 @@ export const Suggestions = observer(
         ...(document
           ? groups.notInDocument(document.id, query)
           : collection
-          ? groups.notInCollection(collection.id, query)
-          : []),
+            ? groups.notInCollection(collection.id, query)
+            : []),
         ...filtered,
       ];
     }, [
@@ -131,7 +133,7 @@ export const Suggestions = observer(
           .map((id) =>
             isEmail(id)
               ? getSuggestionForEmail(id)
-              : users.get(id) ?? groups.get(id)
+              : (users.get(id) ?? groups.get(id))
           )
           .filter(Boolean) as User[],
       [users, groups, getSuggestionForEmail, pendingIds]
@@ -156,8 +158,8 @@ export const Suggestions = observer(
         subtitle: suggestion.email
           ? suggestion.email
           : suggestion.isViewer
-          ? t("Viewer")
-          : t("Editor"),
+            ? t("Viewer")
+            : t("Editor"),
         image: <Avatar model={suggestion} size={AvatarSize.Medium} />,
       };
     }

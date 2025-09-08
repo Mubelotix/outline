@@ -15,7 +15,6 @@ import { CollectionValidation } from "@shared/validations";
 import attachmentCreator from "@server/commands/attachmentCreator";
 import documentCreator from "@server/commands/documentCreator";
 import { createContext } from "@server/context";
-import { serializer } from "@server/editor";
 import { InternalError, ValidationError } from "@server/errors";
 import Logger from "@server/logging/Logger";
 import {
@@ -30,6 +29,7 @@ import { sequelize } from "@server/storage/database";
 import ZipHelper from "@server/utils/ZipHelper";
 import { generateUrlId } from "@server/utils/url";
 import BaseTask, { TaskPriority } from "./BaseTask";
+import env from "@server/env";
 
 type Props = {
   fileOperationId: string;
@@ -56,7 +56,8 @@ export type StructuredImportData = {
      * link to the document as part of persistData once the document url is
      * generated.
      */
-    description?: string | Record<string, any> | null;
+    description?: string | null;
+    data?: ProsemirrorData | null;
     /** Optional id from import source, useful for mapping */
     externalId?: string;
   }[];
@@ -77,7 +78,7 @@ export type StructuredImportData = {
      * is generated.
      */
     text: string;
-    data?: Record<string, any>;
+    data?: ProsemirrorData;
     collectionId: string;
     updatedAt?: Date;
     createdAt?: Date;
@@ -218,7 +219,7 @@ export default abstract class ImportTask extends BaseTask<Props> {
       filePath = res.path;
       cleanup = res.cleanup;
 
-      const path = await new Promise<string>((resolve, reject) => {
+      const tmpPath = await new Promise<string>((resolve, reject) => {
         tmp.dir((err, tmpDir) => {
           if (err) {
             Logger.error("Could not create temporary directory", err);
@@ -239,7 +240,7 @@ export default abstract class ImportTask extends BaseTask<Props> {
         });
       });
 
-      return path;
+      return tmpPath;
     } finally {
       Logger.debug(
         "task",
@@ -304,7 +305,6 @@ export default abstract class ImportTask extends BaseTask<Props> {
     const user = await User.findByPk(fileOperation.userId, {
       rejectOnEmpty: true,
     });
-    const ip = user.lastActiveIp || undefined;
 
     try {
       await this.preprocessDocUrlIds(data);
@@ -317,12 +317,6 @@ export default abstract class ImportTask extends BaseTask<Props> {
             `ImportTask persisting collection ${item.name} (${item.id})`
           );
           let description = item.description;
-
-          // Description can be markdown text or a Prosemirror object if coming
-          // from JSON format. In that case we need to serialize to Markdown.
-          if (description instanceof Object) {
-            description = serializer.serialize(description);
-          }
 
           if (description) {
             // Check all of the attachments we've created against urls in the text
@@ -370,25 +364,28 @@ export default abstract class ImportTask extends BaseTask<Props> {
             ...options,
             id: item.id,
             description: truncatedDescription,
+            content: item.data,
             color: item.color,
             icon: item.icon,
             sort: item.sort,
             createdById: fileOperation.userId,
             permission:
-              item.permission ?? fileOperation.options?.permission !== undefined
+              (item.permission ??
+              fileOperation.options?.permission !== undefined)
                 ? fileOperation.options?.permission
                 : CollectionPermission.ReadWrite,
             importId: fileOperation.id,
           };
 
+          const ctx = createContext({ user, transaction });
+
           // check if collection with name exists
-          const response = await Collection.findOrCreate({
+          const response = await Collection.findOrCreateWithCtx(ctx, {
             where: {
               teamId: fileOperation.teamId,
               name: item.name,
             },
             defaults: sharedDefaults,
-            transaction,
           });
 
           let collection = response[0];
@@ -399,31 +396,12 @@ export default abstract class ImportTask extends BaseTask<Props> {
           // with right now
           if (!isCreated) {
             const name = `${item.name} (Imported)`;
-            collection = await Collection.create(
-              {
-                ...sharedDefaults,
-                name,
-                teamId: fileOperation.teamId,
-              },
-              { transaction }
-            );
+            collection = await Collection.createWithCtx(ctx, {
+              ...sharedDefaults,
+              name,
+              teamId: fileOperation.teamId,
+            });
           }
-
-          await Event.create(
-            {
-              name: "collections.create",
-              collectionId: collection.id,
-              teamId: collection.teamId,
-              actorId: fileOperation.userId,
-              data: {
-                name: collection.name,
-              },
-              ip,
-            },
-            {
-              transaction,
-            }
-          );
 
           collections.set(item.id, collection);
 
@@ -466,7 +444,9 @@ export default abstract class ImportTask extends BaseTask<Props> {
               title: item.title,
               urlId: item.urlId,
               text,
-              content: item.data ? (item.data as ProsemirrorData) : undefined,
+              content: item.data,
+              icon: item.icon,
+              color: item.color,
               collectionId: item.collectionId,
               createdAt: item.createdAt,
               updatedAt: item.updatedAt ?? item.createdAt,
@@ -478,9 +458,10 @@ export default abstract class ImportTask extends BaseTask<Props> {
             });
             documents.set(item.id, document);
 
-            await collection.addDocumentToStructure(document, 0, {
+            await collection.addDocumentToStructure(document, undefined, {
               transaction,
               save: false,
+              insertOrder: "append",
             });
           }
 
@@ -492,10 +473,10 @@ export default abstract class ImportTask extends BaseTask<Props> {
       await sequelize.transaction(async (transaction) => {
         const chunks = chunk(data.attachments, 10);
 
-        for (const chunk of chunks) {
+        for (const attChunk of chunks) {
           // Parallelize 10 uploads at a time
           await Promise.all(
-            chunk.map(async (item) => {
+            attChunk.map(async (item) => {
               Logger.debug(
                 "task",
                 `ImportTask persisting attachment ${item.name} (${item.id})`
@@ -509,6 +490,9 @@ export default abstract class ImportTask extends BaseTask<Props> {
                 buffer: await item.buffer(),
                 user,
                 ctx: createContext({ user, transaction }),
+                fetchOptions: {
+                  timeout: env.FILE_STORAGE_IMPORT_TIMEOUT,
+                },
               });
               if (attachment) {
                 attachments.set(item.id, attachment);

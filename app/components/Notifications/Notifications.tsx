@@ -23,21 +23,19 @@ import NotificationListItem from "./NotificationListItem";
 type Props = {
   /** Callback when the notification panel wants to close. */
   onRequestClose: () => void;
-  /** Whether the panel is open or not. */
-  isOpen: boolean;
 };
 
 /**
  * A panel containing a list of notifications and controls to manage them.
  */
 function Notifications(
-  { onRequestClose, isOpen }: Props,
+  { onRequestClose }: Props,
   ref: React.RefObject<HTMLDivElement>
 ) {
   const context = useActionContext();
   const { notifications } = useStores();
   const { t } = useTranslation();
-  const isEmpty = notifications.orderedData.length === 0;
+  const isEmpty = notifications.active.length === 0;
 
   // Update the notification count in the dock icon, if possible.
   React.useEffect(() => {
@@ -69,7 +67,11 @@ function Notifications(
           <Flex gap={8}>
             {notifications.approximateUnreadCount > 0 && (
               <Tooltip content={t("Mark all as read")}>
-                <Button action={markNotificationsAsRead} context={context}>
+                <Button
+                  action={markNotificationsAsRead}
+                  context={context}
+                  aria-label={t("Mark all as read")}
+                >
                   <MarkAsReadIcon />
                 </Button>
               </Tooltip>
@@ -79,11 +81,11 @@ function Notifications(
         </Header>
         <React.Suspense fallback={null}>
           <Scrollable ref={ref} flex topShadow>
-            <PaginatedList
+            <PaginatedList<Notification>
               fetch={notifications.fetchPage}
               options={{ archived: false }}
-              items={isOpen ? notifications.orderedData : undefined}
-              renderItem={(item: Notification) => (
+              items={notifications.active}
+              renderItem={(item) => (
                 <NotificationListItem
                   key={item.id}
                   notification={item}

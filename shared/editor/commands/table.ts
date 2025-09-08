@@ -1,6 +1,11 @@
 import { GapCursor } from "prosemirror-gapcursor";
-import { Node, NodeType } from "prosemirror-model";
-import { Command, EditorState, TextSelection } from "prosemirror-state";
+import { Node, NodeType, Slice } from "prosemirror-model";
+import {
+  Command,
+  EditorState,
+  TextSelection,
+  Transaction,
+} from "prosemirror-state";
 import {
   CellSelection,
   addRow,
@@ -11,11 +16,19 @@ import {
   addColumn,
   deleteRow,
   deleteColumn,
+  deleteTable,
+  mergeCells,
+  splitCell,
 } from "prosemirror-tables";
 import { ProsemirrorHelper } from "../../utils/ProsemirrorHelper";
 import { CSVHelper } from "../../utils/csv";
 import { chainTransactions } from "../lib/chainTransactions";
-import { getCellsInColumn, isHeaderEnabled } from "../queries/table";
+import {
+  getCellsInColumn,
+  getCellsInRow,
+  isHeaderEnabled,
+  isTableSelected,
+} from "../queries/table";
 import { TableLayout } from "../types";
 import { collapseSelection } from "./collapseSelection";
 
@@ -44,11 +57,11 @@ export function createTable({
   };
 }
 
-function createTableInner(
+export function createTableInner(
   state: EditorState,
   rowsCount: number,
   colsCount: number,
-  colWidth: number,
+  colWidth?: number,
   withHeaderRow = true,
   cellContent?: Node
 ) {
@@ -130,7 +143,7 @@ export function exportTable({
         .map((row) =>
           row
             .map((cell) => {
-              let value = ProsemirrorHelper.toPlainText(cell, state.schema);
+              let value = ProsemirrorHelper.toPlainText(cell);
 
               // Escape double quotes by doubling them
               if (value.includes('"')) {
@@ -280,9 +293,15 @@ export function addRowBefore({ index }: { index?: number }): Command {
     // move inwards.
     const headerSpecialCase = position === 0 && isHeaderRowEnabled;
 
+    // Determine which row to copy alignment from (using original table indices)
+    // When inserting at position 0, copy from original row 0
+    // When inserting at other positions, copy from the row above (position - 1)
+    const copyFromRow = position === 0 ? 0 : position - 1;
+
     chainTransactions(
       headerSpecialCase ? toggleHeader("row") : undefined,
-      (s, d) => !!d?.(addRow(s.tr, rect, position)),
+      (s, d) =>
+        !!d?.(addRowWithAlignment(s.tr, rect, position, copyFromRow, s)),
       headerSpecialCase ? toggleHeader("row") : undefined,
       collapseSelection()
     )(state, dispatch);
@@ -374,12 +393,24 @@ export function addRowAndMoveSelection({
     // above instead of below.
     if (rect.left === 0 && view?.endOfTextblock("backward", state)) {
       const indexBefore = index !== undefined ? index - 1 : rect.top;
-      dispatch?.(addRow(state.tr, rect, indexBefore));
+      // Copy alignment from the current row (which will be pushed down)
+      const copyFromRow = indexBefore;
+      dispatch?.(
+        addRowWithAlignment(state.tr, rect, indexBefore, copyFromRow, state)
+      );
       return true;
     }
 
     const indexAfter = index !== undefined ? index + 1 : rect.bottom;
-    const tr = addRow(state.tr, rect, indexAfter);
+    // Copy alignment from the row above the insertion point
+    const copyFromRow = indexAfter > 0 ? indexAfter - 1 : undefined;
+    const tr = addRowWithAlignment(
+      state.tr,
+      rect,
+      indexAfter,
+      copyFromRow,
+      state
+    );
 
     // Special case when adding row to the end of the table as the calculated
     // rect does not include the row that we just added.
@@ -543,4 +574,129 @@ export function moveOutOfTable(direction: 1 | -1): Command {
     }
     return false;
   };
+}
+
+/**
+ * A command that deletes the entire table if all cells are selected.
+ *
+ * @returns The command
+ */
+export function deleteTableIfSelected(): Command {
+  return (state, dispatch): boolean => {
+    if (isTableSelected(state)) {
+      return deleteTable(state, dispatch);
+    }
+    return false;
+  };
+}
+
+export function deleteCellSelection(
+  state: EditorState,
+  dispatch?: (tr: Transaction) => void
+): boolean {
+  const sel = state.selection;
+  if (!(sel instanceof CellSelection)) {
+    return false;
+  }
+  if (dispatch) {
+    const tr = state.tr;
+    const baseContent = tableNodeTypes(state.schema).cell.createAndFill()!
+      .content;
+    sel.forEachCell((cell, pos) => {
+      if (!cell.content.eq(baseContent)) {
+        tr.replace(
+          tr.mapping.map(pos + 1),
+          tr.mapping.map(pos + cell.nodeSize - 1),
+          new Slice(baseContent, 0, 0)
+        );
+      }
+    });
+    if (tr.docChanged) {
+      dispatch(tr);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * A command that splits a cell and collapses the selection.
+ *
+ * @returns The command
+ */
+export function splitCellAndCollapse(): Command {
+  return chainTransactions(splitCell, collapseSelection());
+}
+
+/**
+ * Helper function to add a row while copying alignment attributes from an existing row.
+ *
+ * @param tr The transaction
+ * @param rect The table rect
+ * @param index The index where to insert the row
+ * @param copyFromRow The row index to copy alignment from (optional)
+ * @param state The editor state
+ * @returns The modified transaction
+ */
+function addRowWithAlignment(
+  tr: Transaction,
+  rect: any,
+  index: number,
+  copyFromRow: number | undefined,
+  state: EditorState
+): Transaction {
+  // Get alignment attributes from the source row BEFORE inserting the new row
+  let sourceRowAlignments: (string | null)[] | undefined;
+
+  if (
+    copyFromRow !== undefined &&
+    copyFromRow >= 0 &&
+    copyFromRow < rect.map.height
+  ) {
+    const cellsInSourceRow = getCellsInRow(copyFromRow)(state);
+    if (cellsInSourceRow) {
+      sourceRowAlignments = cellsInSourceRow.map((pos) => {
+        const node = tr.doc.nodeAt(pos);
+        return node?.attrs.alignment || null;
+      });
+    }
+  }
+
+  // Now add the row using the standard prosemirror function
+  const newTr = addRow(tr, rect, index);
+
+  // Apply the copied alignments to the new row
+  if (sourceRowAlignments) {
+    const newState = state.apply(newTr);
+    const cellsInNewRow = getCellsInRow(index)(newState);
+
+    if (cellsInNewRow) {
+      cellsInNewRow.forEach((newCellPos, colIndex) => {
+        if (
+          colIndex < sourceRowAlignments.length &&
+          sourceRowAlignments[colIndex]
+        ) {
+          const newCellNode = newTr.doc.nodeAt(newCellPos);
+          if (newCellNode) {
+            const attrs = {
+              ...newCellNode.attrs,
+              alignment: sourceRowAlignments[colIndex],
+            };
+            newTr.setNodeMarkup(newCellPos, undefined, attrs);
+          }
+        }
+      });
+    }
+  }
+
+  return newTr;
+}
+
+/**
+ * A command that merges selected cells and collapses the selection.
+ *
+ * @returns The command
+ */
+export function mergeCellsAndCollapse(): Command {
+  return chainTransactions(mergeCells, collapseSelection());
 }

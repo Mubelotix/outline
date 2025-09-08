@@ -33,6 +33,7 @@ router.post(
 
     let where: WhereOptions<Event> = {
       teamId: user.teamId,
+      actorId: { [Op.ne]: null },
     };
 
     if (auditLog) {
@@ -61,9 +62,9 @@ router.post(
     if (collectionId) {
       where = { ...where, collectionId };
 
-      const collection = await Collection.scope({
-        method: ["withMembership", user.id],
-      }).findByPk(collectionId);
+      const collection = await Collection.findByPk(collectionId, {
+        userId: user.id,
+      });
       authorize(user, "read", collection);
     } else {
       const collectionIds = await user.collectionIds({

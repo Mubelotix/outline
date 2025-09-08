@@ -1,6 +1,6 @@
 import noop from "lodash/noop";
 import { observer } from "mobx-react";
-import * as React from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Waypoint } from "react-waypoint";
 import styled from "styled-components";
@@ -19,6 +19,9 @@ import Folder from "./Folder";
 import PlaceholderCollections from "./PlaceholderCollections";
 import SidebarLink from "./SidebarLink";
 
+// The number of child documents to initially render
+const DEFAULT_PAGE_SIZE = 50;
+
 type Props = {
   /** The collection to render the children of. */
   collection: Collection;
@@ -33,26 +36,19 @@ function CollectionLinkChildren({
   expanded,
   prefetchDocument,
 }: Props) {
-  const pageSize = 250;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const { documents } = useStores();
   const { t } = useTranslation();
   const childDocuments = useCollectionDocuments(collection, documents.active);
-  const [showing, setShowing] = React.useState(pageSize);
-  const dummyRef = React.useRef<HTMLDivElement>(null);
+  const [showing, setShowing] = useState(pageSize);
 
-  const [{ isOver, canDrop }, dropRef] = useDropToChangeCollection(
-    collection,
-    noop,
-    dummyRef
-  );
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (!expanded) {
       setShowing(pageSize);
     }
   }, [expanded]);
 
-  const showMore = React.useCallback(() => {
+  const showMore = useCallback(() => {
     if (childDocuments && childDocuments.length > showing) {
       setShowing((value) => value + pageSize);
     }
@@ -60,9 +56,7 @@ function CollectionLinkChildren({
 
   return (
     <Folder expanded={expanded}>
-      {canDrop && collection.isManualSort && (
-        <DropCursor isActiveDrop={isOver} innerRef={dropRef} position="top" />
-      )}
+      <DynamicDropCursor collection={collection} />
       <DocumentsLoader collection={collection} enabled={expanded}>
         {!childDocuments && (
           <ResizingHeightContainer hideOverflow>
@@ -92,11 +86,32 @@ function CollectionLinkChildren({
             depth={2}
           />
         )}
-        <Waypoint key={showing} onEnter={showMore} fireOnRapidScroll />
+        {childDocuments && (
+          <Waypoint key={showing} onEnter={showMore} fireOnRapidScroll />
+        )}
       </DocumentsLoader>
     </Folder>
   );
 }
+
+const DynamicDropCursor = observer(
+  ({ collection }: { collection: Collection }) => {
+    const dummyRef = useRef<HTMLDivElement>(null);
+    const [{ isOver, canDrop }] = useDropToChangeCollection(
+      collection,
+      noop,
+      dummyRef
+    );
+
+    if (!canDrop || !collection.isManualSort) {
+      return null;
+    }
+
+    return (
+      <DropCursor isActiveDrop={isOver} innerRef={dummyRef} position="top" />
+    );
+  }
+);
 
 const Loading = styled(PlaceholderCollections)`
   margin-left: 44px;

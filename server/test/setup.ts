@@ -1,16 +1,18 @@
 import "reflect-metadata";
 import sharedEnv from "@shared/env";
 import env from "@server/env";
-import Redis from "@server/storage/redis";
+import Redis from "ioredis-mock";
 
-require("@server/storage/database");
+// Enable mocks for Redis-related modules
+jest.mock("ioredis", () => require("ioredis-mock"));
+jest.mock("@server/utils/MutexLock");
+jest.mock("@server/utils/CacheHelper");
 
-jest.mock("bull");
+// Enable fetch mocks for testing
+require("jest-fetch-mock").enableMocks();
+fetchMock.dontMock();
 
-// This is needed for the relative manual mock to be picked up
-jest.mock("../queues");
-
-// We never want to make real S3 requests in test environment
+// Mock AWS SDK S3 client and related commands
 jest.mock("@aws-sdk/client-s3", () => ({
   S3Client: jest.fn(() => ({
     send: jest.fn(),
@@ -34,8 +36,13 @@ jest.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: jest.fn(),
 }));
 
-afterAll(() => Redis.defaultClient.disconnect());
+// Initialize the database models
+require("@server/storage/database");
 
 beforeEach(() => {
   env.URL = sharedEnv.URL = "https://app.outline.dev";
+});
+
+afterEach((done) => {
+  new Redis().flushall().then(() => done());
 });

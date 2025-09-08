@@ -1,6 +1,6 @@
 import commandScore from "command-score";
 import invariant from "invariant";
-// eslint-disable-next-line lodash/import-scope
+// oxlint-disable-next-line lodash/import-scope
 import type { ObjectIterateeCustom } from "lodash";
 import deburr from "lodash/deburr";
 import filter from "lodash/filter";
@@ -104,6 +104,9 @@ export default abstract class Store<T extends Model> {
           if ("deletedAt" in item && item.deletedAt) {
             return false;
           }
+          if ("archivedAt" in item && item.archivedAt) {
+            return false;
+          }
           return true;
         })
         .slice(0, options?.maxResults);
@@ -112,6 +115,9 @@ export default abstract class Store<T extends Model> {
     return this.orderedData
       .filter((item: T & Searchable) => {
         if ("deletedAt" in item && item.deletedAt) {
+          return false;
+        }
+        if ("archivedAt" in item && item.archivedAt) {
           return false;
         }
         if ("searchContent" in item) {
@@ -270,7 +276,7 @@ export default abstract class Store<T extends Model> {
    * @param id The ID of the item to get.
    */
   get(id: string): T | undefined {
-    return this.data.get(id);
+    return id ? this.data.get(id) : undefined;
   }
 
   @action

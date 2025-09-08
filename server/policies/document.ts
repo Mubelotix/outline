@@ -60,7 +60,8 @@ allow(User, "comment", Document, (actor, document) =>
     ),
     isTeamMutable(actor),
     !!document?.isActive,
-    !document?.template
+    !document?.template,
+    or(!document?.collection, document?.collection?.commenting !== false)
   )
 );
 
@@ -157,6 +158,7 @@ allow(User, "move", Document, (actor, document) =>
     or(
       can(actor, "updateDocument", document?.collection),
       and(!!document?.isDraft && actor.id === document?.createdById),
+      and(!!document?.isDraft && !document?.collection),
       and(
         !!document?.isWorkspaceTemplate,
         or(

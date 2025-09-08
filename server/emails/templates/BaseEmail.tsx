@@ -2,8 +2,7 @@ import addressparser, { EmailAddress } from "addressparser";
 import Bull from "bull";
 import invariant from "invariant";
 import { Node } from "prosemirror-model";
-import randomstring from "randomstring";
-import * as React from "react";
+import { randomString } from "@shared/random";
 import { TeamPreference } from "@shared/types";
 import { Day } from "@shared/utils/time";
 import mailer from "@server/emails/mailer";
@@ -35,7 +34,7 @@ export interface EmailProps {
 
 export default abstract class BaseEmail<
   T extends EmailProps,
-  S extends Record<string, any> | void = void
+  S extends Record<string, unknown> | void = void,
 > {
   private props: T;
   private metadata?: NotificationMetadata;
@@ -200,7 +199,7 @@ export default abstract class BaseEmail<
       address:
         env.isCloudHosted &&
         this.category === EmailMessageCategory.Authentication
-          ? `noreply-${randomstring.generate(24)}@${domain}`
+          ? `noreply-${randomString(24)}@${domain}`
           : parsedFrom.address,
     };
   }
@@ -296,7 +295,12 @@ export default abstract class BaseEmail<
       return undefined;
     }
 
-    let content = ProsemirrorHelper.toHTML(node, {
+    // Process user mentions to ensure they are uptodate with database
+    const processedNode = ProsemirrorHelper.toProsemirror(
+      await ProsemirrorHelper.processMentions(node)
+    );
+
+    let content = ProsemirrorHelper.toHTML(processedNode, {
       centered: false,
     });
 

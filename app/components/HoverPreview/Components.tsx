@@ -2,7 +2,6 @@ import { transparentize } from "polished";
 import { Link } from "react-router-dom";
 import styled, { css } from "styled-components";
 import { s } from "@shared/styles";
-import { getTextColor } from "@shared/utils/color";
 import Text from "~/components/Text";
 
 export const CARD_MARGIN = 10;
@@ -21,7 +20,8 @@ export const Preview = styled(Link)`
   cursor: ${(props: { as?: string }) =>
     props.as === "div" ? "default" : "var(--pointer)"};
   border-radius: 4px;
-  box-shadow: 0 30px 90px -20px rgba(0, 0, 0, 0.3),
+  box-shadow:
+    0 30px 90px -20px rgba(0, 0, 0, 0.3),
     0 0 1px 1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   position: absolute;
@@ -33,7 +33,7 @@ export const Title = styled(Text).attrs({ as: "h2", size: "large" })`
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 6px;
 `;
 
 export const Info = styled(StyledText).attrs(() => ({
@@ -60,15 +60,27 @@ export const Thumbnail = styled.img`
 export const Label = styled(Text).attrs({ size: "xsmall", weight: "bold" })<{
   color?: string;
 }>`
-  background-color: ${(props) =>
-    props.color ?? props.theme.backgroundSecondary};
-  color: ${(props) =>
-    props.color ? getTextColor(props.color) : props.theme.text};
+  border: 1px solid ${(props) => props.theme.divider};
   width: fit-content;
   border-radius: 2em;
-  padding: 0 8px;
+  padding: 1px 8px 1px 20px;
   margin-right: 0.5em;
   margin-top: 0.5em;
+  position: relative;
+  flex-shrink: 0;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: ${(props) =>
+      props.color || props.theme.backgroundSecondary};
+  }
 `;
 
 export const CardContent = styled.div`

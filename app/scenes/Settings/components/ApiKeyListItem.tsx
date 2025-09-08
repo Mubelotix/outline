@@ -1,6 +1,6 @@
 import { observer } from "mobx-react";
 import { CopyIcon } from "outline-icons";
-import * as React from "react";
+import { useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import ApiKey from "~/models/ApiKey";
@@ -32,7 +32,7 @@ const ApiKeyListItem = ({ apiKey }: Props) => {
         {t(`Created`)} <Time dateTime={apiKey.createdAt} addSuffix />{" "}
         {apiKey.userId === user.id
           ? ""
-          : t(`by {{ name }}`, { name: user.name })}{" "}
+          : t(`by {{ name }}`, { name: apiKey.user.name })}{" "}
         &middot;{" "}
       </Text>
       {apiKey.lastActiveAt && (
@@ -62,10 +62,10 @@ const ApiKeyListItem = ({ apiKey }: Props) => {
     </>
   );
 
-  const [copied, setCopied] = React.useState<boolean>(false);
-  const copyTimeoutIdRef = React.useRef<ReturnType<typeof setTimeout>>();
+  const [copied, setCopied] = useState<boolean>(false);
+  const copyTimeoutIdRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const handleCopy = React.useCallback(() => {
+  const handleCopy = useCallback(() => {
     if (copyTimeoutIdRef.current) {
       clearTimeout(copyTimeoutIdRef.current);
     }

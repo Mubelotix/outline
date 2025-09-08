@@ -51,6 +51,11 @@ export const codeLanguages: Record<string, CodeLanguage> = {
     label: "CSV",
     loader: () => import("refractor/lang/csv").then((m) => m.default),
   },
+  dart: {
+    lang: "dart",
+    label: "Dart",
+    loader: () => import("refractor/lang/dart").then((m) => m.default),
+  },
   docker: {
     lang: "docker",
     label: "Docker",
@@ -197,6 +202,12 @@ export const codeLanguages: Record<string, CodeLanguage> = {
     lang: "powershell",
     label: "Powershell",
     loader: () => import("refractor/lang/powershell").then((m) => m.default),
+  },
+  promql: {
+    lang: "promql",
+    label: "PromQL",
+    // @ts-expect-error PromQL is not in types but exists
+    loader: () => import("refractor/lang/promql").then((m) => m.default),
   },
   protobuf: {
     lang: "protobuf",
@@ -396,7 +407,7 @@ export const getFrequentCodeLanguages = () => {
   const recentLang = Storage.get(RecentlyUsedStorageKey);
   const frequentLangEntries = Object.entries(Storage.get(StorageKey) ?? {}) as [
     keyof typeof codeLanguages,
-    number
+    number,
   ][];
 
   const frequentLangs = sortFrequencies(frequentLangEntries)

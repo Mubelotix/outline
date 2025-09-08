@@ -1,6 +1,6 @@
 import { action, observable } from "mobx";
 import { toggleMark } from "prosemirror-commands";
-import { Slice } from "prosemirror-model";
+import { Node, Slice } from "prosemirror-model";
 import {
   EditorState,
   Plugin,
@@ -8,7 +8,6 @@ import {
   TextSelection,
 } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import * as React from "react";
 import { v4 } from "uuid";
 import Extension, { WidgetProps } from "@shared/editor/lib/Extension";
 import { codeLanguages } from "@shared/editor/lib/code";
@@ -17,6 +16,7 @@ import normalizePastedMarkdown from "@shared/editor/lib/markdown/normalize";
 import { isRemoteTransaction } from "@shared/editor/lib/multiplayer";
 import { recreateTransform } from "@shared/editor/lib/prosemirror-recreate-transform";
 import { isInCode } from "@shared/editor/queries/isInCode";
+import { isList } from "@shared/editor/queries/isList";
 import { MenuItem } from "@shared/editor/types";
 import { IconType, MentionType } from "@shared/types";
 import { determineIconType } from "@shared/utils/icon";
@@ -30,7 +30,7 @@ export default class PasteHandler extends Extension {
   state: {
     open: boolean;
     query: string;
-    pastedText: string;
+    pastedText: string | string[];
   } = observable({
     open: false,
     query: "",
@@ -294,9 +294,16 @@ export default class PasteHandler extends Extension {
                   currentPos += node.nodeSize;
                 });
               } else {
-                singleNode
-                  ? tr.replaceSelectionWith(singleNode, this.shiftKey)
-                  : tr.replaceSelection(slice);
+                if (singleNode) {
+                  if (isList(singleNode, this.editor.schema)) {
+                    this.handleList(singleNode);
+                    return true;
+                  } else {
+                    tr.replaceSelectionWith(singleNode, this.shiftKey);
+                  }
+                } else {
+                  tr.replaceSelection(slice);
+                }
               }
 
               view.dispatch(
@@ -349,7 +356,7 @@ export default class PasteHandler extends Extension {
                   simplifyDiff: true,
                 }).mapping;
               } catch (err) {
-                // eslint-disable-next-line no-console
+                // oxlint-disable-next-line no-console
                 console.warn("Failed to recreate transform: ", err);
               }
             }
@@ -375,7 +382,7 @@ export default class PasteHandler extends Extension {
 
   private shiftKey = false;
 
-  private showPasteMenu = action((text: string) => {
+  private showPasteMenu = action((text: string | string[]) => {
     this.state.pastedText = text;
     this.state.open = true;
   });
@@ -401,7 +408,7 @@ export default class PasteHandler extends Extension {
   private insertEmbed = () => {
     const { view } = this.editor;
     const { state } = view;
-    const result = this.findPlaceholder(state, this.state.pastedText);
+    const result = this.findPlaceholder(state, this.placeholderId());
 
     if (result) {
       const tr = state.tr.deleteRange(result[0], result[1]);
@@ -411,14 +418,14 @@ export default class PasteHandler extends Extension {
     }
 
     this.editor.commands.embed({
-      href: this.state.pastedText,
+      href: this.state.pastedText as string,
     });
   };
 
   private insertMention = () => {
     const { view } = this.editor;
     const { state } = view;
-    const result = this.findPlaceholder(state, this.state.pastedText);
+    const result = this.findPlaceholder(state, this.placeholderId());
 
     // Remove just the placeholder here.
     // Mention node will be created by SuggestionsMenu.
@@ -430,15 +437,83 @@ export default class PasteHandler extends Extension {
     }
   };
 
+  private insertMentionList = () => {
+    const { view } = this.editor;
+    const { state } = view;
+    const result = this.findPlaceholder(state, this.placeholderId());
+
+    // Remove just the placeholder here.
+    // Mention list will be created by SuggestionsMenu.
+    if (result) {
+      const tr = state.tr.setMeta(this.key, {
+        remove: { id: this.placeholderId() },
+      });
+
+      view.dispatch(
+        tr.setSelection(TextSelection.near(tr.doc.resolve(result[0])))
+      );
+    }
+  };
+
+  private handleList(listNode: Node) {
+    const { view, schema } = this.editor;
+    const { state } = view;
+    const { from } = state.selection;
+
+    const links: string[] = [];
+    let allLinks = true;
+    listNode.descendants((node) => {
+      if (!allLinks) {
+        return false;
+      }
+
+      if (isList(node, schema) || node.type.name === "list_item") {
+        return true;
+      }
+
+      if (node.type.name === "paragraph" && isUrl(node.textContent)) {
+        links.push(node.textContent);
+        return false;
+      }
+
+      allLinks = false;
+      return false;
+    });
+
+    if (!allLinks || !links.length) {
+      return;
+    }
+
+    const placeholderId = links[0];
+    const to = from + listNode.nodeSize;
+
+    const transaction = state.tr
+      .replaceSelectionWith(listNode)
+      .setMeta(this.key, {
+        add: { from, to, id: placeholderId },
+      });
+
+    view.dispatch(transaction);
+
+    this.showPasteMenu(links);
+  }
+
+  private placeholderId = () =>
+    typeof this.state.pastedText === "string"
+      ? this.state.pastedText
+      : this.state.pastedText[0];
+
   private removePlaceholder = () => {
     const { view } = this.editor;
     const { state } = view;
-    const result = this.findPlaceholder(state, this.state.pastedText);
+
+    const placeholderId = this.placeholderId();
+    const result = this.findPlaceholder(state, placeholderId);
 
     if (result) {
       view.dispatch(
         state.tr.setMeta(this.key, {
-          remove: { id: this.state.pastedText },
+          remove: { id: placeholderId },
         })
       );
     }
@@ -468,6 +543,11 @@ export default class PasteHandler extends Extension {
       case "mention": {
         this.hidePasteMenu();
         this.insertMention();
+        break;
+      }
+      case "mention_list": {
+        this.hidePasteMenu();
+        this.insertMentionList();
         break;
       }
       default:
@@ -551,7 +631,7 @@ function parseSingleIframeSrc(html: string) {
         return src;
       }
     }
-  } catch (e) {
+  } catch (_err) {
     // Ignore the million ways parsing could fail.
   }
   return undefined;

@@ -1,5 +1,6 @@
 import some from "lodash/some";
 import { EditorState, NodeSelection, TextSelection } from "prosemirror-state";
+import { CellSelection } from "prosemirror-tables";
 import * as React from "react";
 import filterExcessSeparators from "@shared/editor/lib/filterExcessSeparators";
 import { getMarkRange } from "@shared/editor/queries/getMarkRange";
@@ -22,9 +23,11 @@ import getImageMenuItems from "../menus/image";
 import getNoticeMenuItems from "../menus/notice";
 import getReadOnlyMenuItems from "../menus/readOnly";
 import getTableMenuItems from "../menus/table";
+import getTableCellMenuItems from "../menus/tableCell";
 import getTableColMenuItems from "../menus/tableCol";
 import getTableRowMenuItems from "../menus/tableRow";
 import { useEditor } from "./EditorContext";
+import { EmbedLinkEditor } from "./EmbedLinkEditor";
 import FloatingToolbar from "./FloatingToolbar";
 import LinkEditor from "./LinkEditor";
 import ToolbarMenu from "./ToolbarMenu";
@@ -69,7 +72,7 @@ function useIsActive(state: EditorState) {
   }
   if (
     selection instanceof NodeSelection &&
-    ["image", "attachment"].includes(selection.node.type.name)
+    ["image", "attachment", "embed"].includes(selection.node.type.name)
   ) {
     return true;
   }
@@ -183,12 +186,15 @@ export default function SelectionToolbar(props: Props) {
   const colIndex = getColumnIndex(state);
   const rowIndex = getRowIndex(state);
   const isTableSelection = colIndex !== undefined && rowIndex !== undefined;
+  const isCellSelection = selection instanceof CellSelection;
   const link = getMarkRange(selection.$from, state.schema.marks.link);
   const isImageSelection =
     selection instanceof NodeSelection && selection.node.type.name === "image";
   const isAttachmentSelection =
     selection instanceof NodeSelection &&
     selection.node.type.name === "attachment";
+  const isEmbedSelection =
+    selection instanceof NodeSelection && selection.node.type.name === "embed";
   const isCodeSelection = isInCode(state, { onlyBlock: true });
   const isNoticeSelection = isInNotice(state);
 
@@ -202,6 +208,8 @@ export default function SelectionToolbar(props: Props) {
     items = getTableColMenuItems(state, colIndex, rtl, dictionary);
   } else if (rowIndex !== undefined) {
     items = getTableRowMenuItems(state, rowIndex, dictionary);
+  } else if (isCellSelection) {
+    items = getTableCellMenuItems(state, dictionary);
   } else if (isImageSelection) {
     items = readOnly ? [] : getImageMenuItems(state, dictionary);
   } else if (isAttachmentSelection) {
@@ -213,13 +221,16 @@ export default function SelectionToolbar(props: Props) {
   } else if (isNoticeSelection && selection.empty) {
     items = getNoticeMenuItems(state, readOnly, dictionary);
   } else {
-    items = getFormattingMenuItems(state, isTemplate, isMobile, dictionary);
+    items = getFormattingMenuItems(state, isTemplate, dictionary);
   }
 
   // Some extensions may be disabled, remove corresponding items
   items = items.filter((item) => {
     if (item.name === "separator") {
       return true;
+    }
+    if (item.name === "dimensions") {
+      return item.visible ?? false;
     }
     if (item.name && !commands[item.name]) {
       return false;
@@ -242,7 +253,7 @@ export default function SelectionToolbar(props: Props) {
     <FloatingToolbar
       active={isActive}
       ref={menuRef}
-      width={showLinkToolbar ? 336 : undefined}
+      width={showLinkToolbar || isEmbedSelection ? 336 : undefined}
     >
       {showLinkToolbar ? (
         <LinkEditor
@@ -254,6 +265,13 @@ export default function SelectionToolbar(props: Props) {
           to={link.to}
           onClickLink={props.onClickLink}
           onSelectLink={handleOnSelectLink}
+        />
+      ) : isEmbedSelection ? (
+        <EmbedLinkEditor
+          key={`embed-${selection.from}`}
+          node={(selection as NodeSelection).node}
+          view={view}
+          dictionary={dictionary}
         />
       ) : (
         <ToolbarMenu items={items} {...rest} />

@@ -2,6 +2,8 @@ import {
   ArchiveIcon,
   CollectionIcon,
   EditIcon,
+  ExportIcon,
+  NewDocumentIcon,
   PadlockIcon,
   PlusIcon,
   RestoreIcon,
@@ -13,7 +15,6 @@ import {
   UnstarredIcon,
   UnsubscribeIcon,
 } from "outline-icons";
-import * as React from "react";
 import { toast } from "sonner";
 import Collection from "~/models/Collection";
 import { CollectionEdit } from "~/components/Collection/CollectionEdit";
@@ -23,11 +24,19 @@ import ConfirmationDialog from "~/components/ConfirmationDialog";
 import DynamicCollectionIcon from "~/components/Icons/CollectionIcon";
 import SharePopover from "~/components/Sharing/Collection/SharePopover";
 import { getHeaderExpandedKey } from "~/components/Sidebar/components/Header";
-import { createAction } from "~/actions";
+import {
+  createAction,
+  createActionV2,
+  createInternalLinkActionV2,
+} from "~/actions";
 import { ActiveCollectionSection, CollectionSection } from "~/actions/sections";
 import { setPersistedState } from "~/hooks/usePersistedState";
-import history from "~/utils/history";
-import { newTemplatePath, searchPath } from "~/utils/routeHelpers";
+import {
+  newDocumentPath,
+  newTemplatePath,
+  searchPath,
+} from "~/utils/routeHelpers";
+import ExportDialog from "~/components/ExportDialog";
 
 const ColorCollectionIcon = ({ collection }: { collection: Collection }) => (
   <DynamicCollectionIcon collection={collection} />
@@ -48,7 +57,7 @@ export const openCollection = createAction({
       name: collection.name,
       icon: <ColorCollectionIcon collection={collection} />,
       section: CollectionSection,
-      perform: () => history.push(collection.path),
+      to: collection.path,
     }));
   },
 });
@@ -71,7 +80,7 @@ export const createCollection = createAction({
   },
 });
 
-export const editCollection = createAction({
+export const editCollection = createActionV2({
   name: ({ t, isContextMenu }) =>
     isContextMenu ? `${t("Edit")}…` : t("Edit collection"),
   analyticsName: "Edit collection",
@@ -97,7 +106,7 @@ export const editCollection = createAction({
   },
 });
 
-export const editCollectionPermissions = createAction({
+export const editCollectionPermissions = createActionV2({
   name: ({ t, isContextMenu }) =>
     isContextMenu ? `${t("Permissions")}…` : t("Collection permissions"),
   analyticsName: "Collection permissions",
@@ -129,7 +138,7 @@ export const editCollectionPermissions = createAction({
   },
 });
 
-export const searchInCollection = createAction({
+export const searchInCollection = createInternalLinkActionV2({
   name: ({ t }) => t("Search in collection"),
   analyticsName: "Search collection",
   section: ActiveCollectionSection,
@@ -147,13 +156,20 @@ export const searchInCollection = createAction({
 
     return stores.policies.abilities(activeCollectionId).readDocument;
   },
+  to: ({ activeCollectionId, sidebarContext }) => {
+    const [pathname, search] = searchPath({
+      collectionId: activeCollectionId,
+    }).split("?");
 
-  perform: ({ activeCollectionId }) => {
-    history.push(searchPath({ collectionId: activeCollectionId }));
+    return {
+      pathname,
+      search,
+      state: { sidebarContext },
+    };
   },
 });
 
-export const starCollection = createAction({
+export const starCollection = createActionV2({
   name: ({ t }) => t("Star"),
   analyticsName: "Star collection",
   section: ActiveCollectionSection,
@@ -180,7 +196,7 @@ export const starCollection = createAction({
   },
 });
 
-export const unstarCollection = createAction({
+export const unstarCollection = createActionV2({
   name: ({ t }) => t("Unstar"),
   analyticsName: "Unstar collection",
   section: ActiveCollectionSection,
@@ -206,7 +222,7 @@ export const unstarCollection = createAction({
   },
 });
 
-export const subscribeCollection = createAction({
+export const subscribeCollection = createActionV2({
   name: ({ t }) => t("Subscribe"),
   analyticsName: "Subscribe to collection",
   section: ActiveCollectionSection,
@@ -219,6 +235,7 @@ export const subscribeCollection = createAction({
     const collection = stores.collections.get(activeCollectionId);
 
     return (
+      !!collection?.isActive &&
       !collection?.isSubscribed &&
       stores.policies.abilities(activeCollectionId).subscribe
     );
@@ -236,7 +253,7 @@ export const subscribeCollection = createAction({
   },
 });
 
-export const unsubscribeCollection = createAction({
+export const unsubscribeCollection = createActionV2({
   name: ({ t }) => t("Unsubscribe"),
   analyticsName: "Unsubscribe from collection",
   section: ActiveCollectionSection,
@@ -249,6 +266,7 @@ export const unsubscribeCollection = createAction({
     const collection = stores.collections.get(activeCollectionId);
 
     return (
+      !!collection?.isActive &&
       !!collection?.isSubscribed &&
       stores.policies.abilities(activeCollectionId).unsubscribe
     );
@@ -266,10 +284,10 @@ export const unsubscribeCollection = createAction({
   },
 });
 
-export const archiveCollection = createAction({
+export const archiveCollection = createActionV2({
   name: ({ t }) => `${t("Archive")}…`,
   analyticsName: "Archive collection",
-  section: CollectionSection,
+  section: ActiveCollectionSection,
   icon: <ArchiveIcon />,
   visible: ({ activeCollectionId, stores }) => {
     if (!activeCollectionId) {
@@ -307,7 +325,7 @@ export const archiveCollection = createAction({
   },
 });
 
-export const restoreCollection = createAction({
+export const restoreCollection = createActionV2({
   name: ({ t }) => t("Restore"),
   analyticsName: "Restore collection",
   section: CollectionSection,
@@ -332,7 +350,7 @@ export const restoreCollection = createAction({
   },
 });
 
-export const deleteCollection = createAction({
+export const deleteCollection = createActionV2({
   name: ({ t }) => `${t("Delete")}…`,
   analyticsName: "Delete collection",
   section: ActiveCollectionSection,
@@ -366,7 +384,65 @@ export const deleteCollection = createAction({
   },
 });
 
-export const createTemplate = createAction({
+export const exportCollection = createActionV2({
+  name: ({ t }) => `${t("Export")}…`,
+  analyticsName: "Export collection",
+  section: ActiveCollectionSection,
+  icon: <ExportIcon />,
+  visible: ({ currentTeamId, activeCollectionId, stores }) => {
+    if (!currentTeamId || !activeCollectionId) {
+      return false;
+    }
+
+    return (
+      !!stores.policies.abilities(currentTeamId).createExport &&
+      !!stores.policies.abilities(activeCollectionId).export
+    );
+  },
+  perform: async ({ activeCollectionId, stores, t }) => {
+    if (!activeCollectionId) {
+      return;
+    }
+    const collection = stores.collections.get(activeCollectionId);
+    if (!collection) {
+      return;
+    }
+
+    stores.dialogs.openModal({
+      title: t("Export collection"),
+      content: (
+        <ExportDialog
+          collection={collection}
+          onSubmit={stores.dialogs.closeAllModals}
+        />
+      ),
+    });
+  },
+});
+
+export const createDocument = createInternalLinkActionV2({
+  name: ({ t }) => t("New document"),
+  analyticsName: "New document",
+  section: ActiveCollectionSection,
+  icon: <NewDocumentIcon />,
+  keywords: "new create document",
+  visible: ({ activeCollectionId, stores }) =>
+    !!(
+      !!activeCollectionId &&
+      stores.policies.abilities(activeCollectionId).createDocument
+    ),
+  to: ({ activeCollectionId, sidebarContext }) => {
+    const [pathname, search] = newDocumentPath(activeCollectionId).split("?");
+
+    return {
+      pathname,
+      search,
+      state: { sidebarContext },
+    };
+  },
+});
+
+export const createTemplate = createInternalLinkActionV2({
   name: ({ t }) => t("New template"),
   analyticsName: "New template",
   section: ActiveCollectionSection,
@@ -377,13 +453,14 @@ export const createTemplate = createAction({
       !!activeCollectionId &&
       stores.policies.abilities(activeCollectionId).createDocument
     ),
-  perform: ({ activeCollectionId, event }) => {
-    if (!activeCollectionId) {
-      return;
-    }
-    event?.preventDefault();
-    event?.stopPropagation();
-    history.push(newTemplatePath(activeCollectionId));
+  to: ({ activeCollectionId, sidebarContext }) => {
+    const [pathname, search] = newTemplatePath(activeCollectionId).split("?");
+
+    return {
+      pathname,
+      search,
+      state: { sidebarContext },
+    };
   },
 });
 

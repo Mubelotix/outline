@@ -1,5 +1,4 @@
-import { TippyProps } from "@tippyjs/react";
-import * as React from "react";
+import { useMemo } from "react";
 import { useMenuState } from "reakit";
 import { MenuButton } from "reakit/Menu";
 import styled from "styled-components";
@@ -11,6 +10,7 @@ import Template from "~/components/ContextMenu/Template";
 import { TooltipProvider } from "~/components/TooltipContext";
 import { MenuItem as TMenuItem } from "~/types";
 import { useEditor } from "./EditorContext";
+import { MediaDimension } from "./MediaDimension";
 import ToolbarButton from "./ToolbarButton";
 import ToolbarSeparator from "./ToolbarSeparator";
 import Tooltip from "./Tooltip";
@@ -28,7 +28,7 @@ function ToolbarDropdown(props: { active: boolean; item: MenuItem }) {
   const { item } = props;
   const { state } = view;
 
-  const items: TMenuItem[] = React.useMemo(() => {
+  const items: TMenuItem[] = useMemo(() => {
     const handleClick = (menuItem: MenuItem) => () => {
       if (!menuItem.name) {
         return;
@@ -64,7 +64,11 @@ function ToolbarDropdown(props: { active: boolean; item: MenuItem }) {
     <>
       <MenuButton {...menu}>
         {(buttonProps) => (
-          <ToolbarButton {...buttonProps} hovering={menu.visible}>
+          <ToolbarButton
+            {...buttonProps}
+            hovering={menu.visible}
+            aria-label={item.tooltip}
+          >
             {item.label && <Label>{item.label}</Label>}
             {item.icon}
           </ToolbarButton>
@@ -76,8 +80,6 @@ function ToolbarDropdown(props: { active: boolean; item: MenuItem }) {
     </>
   );
 }
-
-const tippyProps = { placement: "top" } as TippyProps;
 
 function ToolbarMenu(props: Props) {
   const { commands, view } = useEditor();
@@ -95,13 +97,13 @@ function ToolbarMenu(props: Props) {
   };
 
   return (
-    <TooltipProvider tippyProps={tippyProps}>
+    <TooltipProvider>
       <FlexibleWrapper>
         {items.map((item, index) => {
           if (item.name === "separator" && item.visible !== false) {
             return <ToolbarSeparator key={index} />;
           }
-          if (item.visible === false || !item.icon) {
+          if (item.visible === false || (!item.skipIcon && !item.icon)) {
             return null;
           }
           const isActive = item.active ? item.active(state) : false;
@@ -112,12 +114,15 @@ function ToolbarMenu(props: Props) {
               shortcut={item.shortcut}
               content={item.label === item.tooltip ? undefined : item.tooltip}
             >
-              {item.children ? (
+              {item.name === "dimensions" ? (
+                <MediaDimension key={index} />
+              ) : item.children ? (
                 <ToolbarDropdown active={isActive && !item.label} item={item} />
               ) : (
                 <ToolbarButton
                   onClick={handleClick(item)}
                   active={isActive && !item.label}
+                  aria-label={item.label ? undefined : item.tooltip}
                 >
                   {item.label && <Label>{item.label}</Label>}
                   {item.icon}

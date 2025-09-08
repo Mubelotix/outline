@@ -1,6 +1,5 @@
-import flatten from "lodash/flatten";
 import { observer } from "mobx-react";
-import * as React from "react";
+import { useState, useMemo } from "react";
 import { useTranslation, Trans } from "react-i18next";
 import { toast } from "sonner";
 import styled from "styled-components";
@@ -13,7 +12,6 @@ import Flex from "~/components/Flex";
 import Text from "~/components/Text";
 import useCollectionTrees from "~/hooks/useCollectionTrees";
 import useStores from "~/hooks/useStores";
-import { flattenTree } from "~/utils/tree";
 
 type Props = {
   /** Document to publish */
@@ -24,12 +22,10 @@ function DocumentPublish({ document }: Props) {
   const { dialogs, policies } = useStores();
   const { t } = useTranslation();
   const collectionTrees = useCollectionTrees();
-  const [selectedPath, selectPath] = React.useState<NavigationNode | null>(
-    null
-  );
-  const publishOptions = React.useMemo(
+  const [selectedPath, selectPath] = useState<NavigationNode | null>(null);
+  const publishOptions = useMemo(
     () =>
-      flatten(collectionTrees.map(flattenTree)).filter((node) =>
+      collectionTrees.filter((node) =>
         node.collectionId
           ? policies.get(node.collectionId)?.abilities.createDocument
           : true
@@ -59,7 +55,7 @@ function DocumentPublish({ document }: Props) {
       toast.success(t("Document published"));
 
       dialogs.closeAllModals();
-    } catch (err) {
+    } catch (_err) {
       toast.error(t("Couldn’t publish the document, try again?"));
     }
   };

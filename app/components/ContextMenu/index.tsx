@@ -119,7 +119,7 @@ const ContextMenu: React.FC<Props> = ({
       >
         {(props) => (
           <InnerContextMenu
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // oxlint-disable-next-line @typescript-eslint/no-explicit-any
             menuProps={props as any}
             {...rest}
             isSubMenu={isSubMenu}
@@ -171,7 +171,9 @@ const InnerContextMenu = (props: InnerContextMenuProps) => {
       });
     }
     return () => {
-      scrollElement && !props.isSubMenu && enableBodyScroll(scrollElement);
+      if (scrollElement && !props.isSubMenu) {
+        enableBodyScroll(scrollElement);
+      }
     };
   }, [props.isSubMenu, props.visible]);
 

@@ -23,7 +23,7 @@ export function fileNameFromUrl(url: string) {
   try {
     const parsed = new URL(url);
     return parsed.pathname.split("/").pop();
-  } catch (err) {
+  } catch (_err) {
     return;
   }
 }
@@ -71,7 +71,7 @@ export function isDocumentUrl(url: string) {
       isInternalUrl(url) &&
       (parsed.pathname.startsWith("/doc/") || parsed.pathname.startsWith("/d/"))
     );
-  } catch (err) {
+  } catch (_err) {
     return false;
   }
 }
@@ -86,7 +86,7 @@ export function isCollectionUrl(url: string) {
   try {
     const parsed = new URL(url, env.URL);
     return isInternalUrl(url) && parsed.pathname.startsWith("/collection/");
-  } catch (err) {
+  } catch (_err) {
     return false;
   }
 }
@@ -98,7 +98,15 @@ export function isCollectionUrl(url: string) {
  * @param options Parsing options.
  * @returns True if a url, false otherwise.
  */
-export function isUrl(text: string, options?: { requireHostname: boolean }) {
+export function isUrl(
+  text: string,
+  options?: {
+    /** Require the url to have a hostname. */
+    requireHostname?: boolean;
+    /** Require the url not to use HTTP, custom protocols are ok. */
+    requireHttps?: boolean;
+  }
+) {
   if (text.match(/\n/)) {
     return false;
   }
@@ -113,13 +121,16 @@ export function isUrl(text: string, options?: { requireHostname: boolean }) {
     if (url.hostname) {
       return true;
     }
+    if (options?.requireHttps && url.protocol === "http:") {
+      return false;
+    }
 
     return (
       url.protocol !== "" &&
       (url.pathname.startsWith("//") || url.pathname.startsWith("http")) &&
       !options?.requireHostname
     );
-  } catch (err) {
+  } catch (_err) {
     return false;
   }
 }

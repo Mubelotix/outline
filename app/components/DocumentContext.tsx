@@ -1,5 +1,5 @@
 import { action, computed, observable } from "mobx";
-import React, { PropsWithChildren } from "react";
+import { createContext, useContext, useMemo, PropsWithChildren } from "react";
 import { Heading } from "@shared/utils/ProsemirrorHelper";
 import Document from "~/models/Document";
 import { Editor } from "~/editor";
@@ -11,9 +11,15 @@ class DocumentContext {
   /** The editor instance for this document */
   editor?: Editor;
 
+  /** The ID of the currently focused comment, or null if no comment is focused */
+  @observable
+  focusedCommentId: string | null = null;
+
+  /** Whether the editor has been initialized */
   @observable
   isEditorInitialized: boolean = false;
 
+  /** The headings in the document */
   @observable
   headings: Heading[] = [];
 
@@ -37,6 +43,11 @@ class DocumentContext {
   @action
   setEditorInitialized = (initialized: boolean) => {
     this.isEditorInitialized = initialized;
+  };
+
+  @action
+  setFocusedCommentId = (commentId: string | null) => {
+    this.focusedCommentId = commentId;
   };
 
   @action
@@ -64,10 +75,10 @@ class DocumentContext {
   }
 }
 
-const Context = React.createContext<DocumentContext | null>(null);
+const Context = createContext<DocumentContext | null>(null);
 
 export const useDocumentContext = () => {
-  const ctx = React.useContext(Context);
+  const ctx = useContext(Context);
   if (!ctx) {
     throw new Error(
       "useDocumentContext must be used within DocumentContextProvider"
@@ -79,6 +90,6 @@ export const useDocumentContext = () => {
 export const DocumentContextProvider = ({
   children,
 }: PropsWithChildren<unknown>) => {
-  const context = React.useMemo(() => new DocumentContext(), []);
+  const context = useMemo(() => new DocumentContext(), []);
   return <Context.Provider value={context}>{children}</Context.Provider>;
 };

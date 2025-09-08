@@ -38,10 +38,10 @@ function StarredLink({ star }: Props) {
   const { ui, collections, documents } = useStores();
   const [menuOpen, handleMenuOpen, handleMenuClose] = useBoolean();
   const { documentId, collectionId } = star;
-  const collection = collections.get(collectionId);
+  const collection = collectionId ? collections.get(collectionId) : undefined;
   const locationSidebarContext = useLocationSidebarContext();
   const sidebarContext = starredSidebarContext(
-    star.documentId ?? star.collectionId
+    star.documentId ?? star.collectionId ?? ""
   );
   const [expanded, setExpanded] = useState(
     (star.documentId
@@ -78,9 +78,9 @@ function StarredLink({ star }: Props) {
   }, [documentId, documents]);
 
   const handleDisclosureClick = React.useCallback(
-    (ev: React.MouseEvent<HTMLButtonElement>) => {
-      ev.preventDefault();
-      ev.stopPropagation();
+    (ev?: React.MouseEvent<HTMLButtonElement>) => {
+      ev?.preventDefault();
+      ev?.stopPropagation();
       setExpanded((prevExpanded) => !prevExpanded);
     },
     []
@@ -128,11 +128,11 @@ function StarredLink({ star }: Props) {
       return null;
     }
 
-    const collection = document.collectionId
+    const documentCollection = document.collectionId
       ? collections.get(document.collectionId)
       : undefined;
-    const childDocuments = collection
-      ? collection.getChildrenForDocument(documentId)
+    const childDocuments = documentCollection
+      ? documentCollection.getChildrenForDocument(documentId)
       : [];
     const hasChildDocuments = childDocuments.length > 0;
 
@@ -176,7 +176,7 @@ function StarredLink({ star }: Props) {
                 <DocumentLink
                   key={node.id}
                   node={node}
-                  collection={collection}
+                  collection={documentCollection}
                   activeDocument={documents.active}
                   prefetchDocument={documents.prefetchDocument}
                   isDraft={node.isDraft}

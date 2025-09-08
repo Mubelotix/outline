@@ -7,6 +7,7 @@ import { isCode } from "@shared/editor/lib/isCode";
 import { findParentNode } from "@shared/editor/queries/findParentNode";
 import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
 import { depths, s } from "@shared/styles";
+import { getSafeAreaInsets } from "@shared/utils/browser";
 import { HEADER_HEIGHT } from "~/components/Header";
 import { Portal } from "~/components/Portal";
 import useEventListener from "~/hooks/useEventListener";
@@ -86,8 +87,8 @@ function usePosition({
     const position = codeBlock
       ? codeBlock.pos
       : noticeBlock
-      ? noticeBlock.pos
-      : null;
+        ? noticeBlock.pos
+        : null;
 
     if (position !== null) {
       const element = view.nodeDOM(position);
@@ -239,14 +240,18 @@ const FloatingToolbar = React.forwardRef(function FloatingToolbar_(
       return null;
     }
 
-    if (props.active) {
+    if (props.active && position.visible) {
       const rect = document.body.getBoundingClientRect();
+      const safeAreaInsets = getSafeAreaInsets();
+
       return (
         <ReactPortal>
           <MobileWrapper
             ref={menuRef}
             style={{
-              bottom: `calc(100% - ${height - rect.y}px)`,
+              bottom: `calc(100% - ${
+                height - rect.y - safeAreaInsets.bottom
+              }px)`,
             }}
           >
             {props.children}
@@ -340,7 +345,8 @@ const Wrapper = styled.div<WrapperProps>`
   box-shadow: ${s("menuShadow")};
   border-radius: 4px;
   transform: scale(0.95);
-  transition: opacity 150ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+  transition:
+    opacity 150ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
     transform 150ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
   transition-delay: 150ms;
   line-height: 0;

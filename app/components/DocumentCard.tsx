@@ -4,7 +4,7 @@ import { subDays } from "date-fns";
 import { m } from "framer-motion";
 import { observer } from "mobx-react";
 import { CloseIcon, DocumentIcon, ClockIcon, EyeIcon } from "outline-icons";
-import * as React from "react";
+import { useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled, { useTheme } from "styled-components";
@@ -40,7 +40,7 @@ function DocumentCard(props: Props) {
   const { collections } = useStores();
   const theme = useTheme();
   const { document, pin, canUpdatePin, isDraggable } = props;
-  const pinnedToHome = React.useRef(!pin?.collectionId).current;
+  const pinnedToHome = useRef(!pin?.collectionId).current;
   const collection = document.collectionId
     ? collections.get(document.collectionId)
     : undefined;
@@ -63,7 +63,7 @@ function DocumentCard(props: Props) {
     transition,
   };
 
-  const handleUnpin = React.useCallback(
+  const handleUnpin = useCallback(
     async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -123,6 +123,7 @@ function DocumentCard(props: Props) {
               <DocumentSquircle
                 icon={document.icon}
                 color={document.color ?? undefined}
+                initial={document.initial}
               />
             ) : (
               <Squircle
@@ -178,7 +179,7 @@ function DocumentCard(props: Props) {
 
 const ReadingTime = ({ document }: { document: Document }) => {
   const { t } = useTranslation();
-  const markdown = React.useMemo(() => document.toMarkdown(), [document]);
+  const markdown = useMemo(() => document.toMarkdown(), [document]);
   const stats = useTextStats(markdown);
 
   return (
@@ -194,17 +195,22 @@ const ReadingTime = ({ document }: { document: Document }) => {
 const DocumentSquircle = ({
   icon,
   color,
+  initial,
 }: {
   icon: string;
   color?: string;
+  initial?: string;
 }) => {
   const theme = useTheme();
   const iconType = determineIconType(icon)!;
   const squircleColor = iconType === IconType.SVG ? color : theme.slateLight;
+  const style = {
+    "--background": squircleColor,
+  } as React.CSSProperties;
 
   return (
-    <Squircle color={squircleColor}>
-      <Icon value={icon} color={theme.white} forceColor />
+    <Squircle color={squircleColor} style={style}>
+      <Icon value={icon} color={theme.white} initial={initial} forceColor />
     </Squircle>
   );
 };

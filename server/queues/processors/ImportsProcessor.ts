@@ -22,7 +22,6 @@ import {
 } from "@shared/types";
 import { colorPalette } from "@shared/utils/collections";
 import { CollectionValidation } from "@shared/validations";
-import collectionDestroyer from "@server/commands/collectionDestroyer";
 import { createContext } from "@server/context";
 import { schema } from "@server/editor";
 import Logger from "@server/logging/Logger";
@@ -40,7 +39,7 @@ import BaseProcessor from "./BaseProcessor";
 export const PagePerImportTask = 3;
 
 export default abstract class ImportsProcessor<
-  T extends ImportableIntegrationService
+  T extends ImportableIntegrationService,
 > extends BaseProcessor {
   static applicableEvents: Event["name"][] = [
     "imports.create",
@@ -146,7 +145,9 @@ export default abstract class ImportsProcessor<
     importModel.state = ImportState.InProgress;
     await importModel.save({ transaction });
 
-    transaction.afterCommit(() => this.scheduleTask(importTasks[0]));
+    if (importTasks.length > 0) {
+      transaction.afterCommit(() => this.scheduleTask(importTasks[0]));
+    }
   }
 
   /**
@@ -179,10 +180,11 @@ export default abstract class ImportsProcessor<
           },
           async (documents) => {
             for (const document of documents) {
-              await collection.addDocumentToStructure(document, 0, {
+              await collection.addDocumentToStructure(document, undefined, {
                 save: false,
                 silent: true,
                 transaction,
+                insertOrder: "append",
               });
             }
           }
@@ -251,13 +253,9 @@ export default abstract class ImportsProcessor<
       Logger.debug("processor", "Destroying collection created from import", {
         collectionId: collection.id,
       });
-
-      await collectionDestroyer({
-        collection,
-        transaction,
-        user,
-        ip: event.ip,
-      });
+      await collection.destroyWithCtx(
+        createContext({ user, ip: event.ip, transaction })
+      );
     }
   }
 
@@ -383,7 +381,6 @@ export default abstract class ImportsProcessor<
                 { silent: true },
                 {
                   name: "create",
-                  data: { name: output.title, source: "import" },
                 }
               );
 
@@ -468,7 +465,7 @@ export default abstract class ImportsProcessor<
     content: ProsemirrorDoc;
     attachments: Attachment[];
     idMap: Record<string, string>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line @typescript-eslint/no-explicit-any
     importInput: Record<string, ImportInput<any>[number]>;
     actorId: string;
   }): ProsemirrorDoc {
@@ -517,8 +514,8 @@ export default abstract class ImportsProcessor<
           node.type.name === "mention"
             ? transformMentionNode(node)
             : node.type.name === "attachment"
-            ? transformAttachmentNode(node)
-            : node.copy(transformFragment(node.content))
+              ? transformAttachmentNode(node)
+              : node.copy(transformFragment(node.content))
         );
       });
 

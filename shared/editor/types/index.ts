@@ -24,7 +24,7 @@ export type MenuItem = {
   name?: string;
   title?: string;
   section?: Section;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   shortcut?: string;
   keywords?: string;
   tooltip?: string;
@@ -40,6 +40,7 @@ export type MenuItem = {
   visible?: boolean;
   active?: (state: EditorState) => boolean;
   appendSpace?: boolean;
+  skipIcon?: boolean;
 };
 
 export type ComponentProps = {

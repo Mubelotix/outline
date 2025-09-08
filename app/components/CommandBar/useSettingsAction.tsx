@@ -1,13 +1,12 @@
 import { SettingsIcon } from "outline-icons";
-import * as React from "react";
+import { useMemo } from "react";
 import { createAction } from "~/actions";
 import { NavigationSection } from "~/actions/sections";
 import useSettingsConfig from "~/hooks/useSettingsConfig";
-import history from "~/utils/history";
 
 const useSettingsAction = () => {
   const config = useSettingsConfig();
-  const actions = React.useMemo(
+  const actions = useMemo(
     () =>
       config.map((item) => {
         const Icon = item.icon;
@@ -16,13 +15,13 @@ const useSettingsAction = () => {
           name: item.name,
           icon: <Icon />,
           section: NavigationSection,
-          perform: () => history.push(item.path),
+          to: item.path,
         };
       }),
     [config]
   );
 
-  const navigateToSettings = React.useMemo(
+  const navigateToSettings = useMemo(
     () =>
       createAction({
         id: "settings",

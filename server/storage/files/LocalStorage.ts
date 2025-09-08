@@ -8,12 +8,15 @@ import invariant from "invariant";
 import JWT from "jsonwebtoken";
 import safeResolvePath from "resolve-path";
 import env from "@server/env";
-import { ValidationError } from "@server/errors";
+import { InternalError, ValidationError } from "@server/errors";
 import Logger from "@server/logging/Logger";
 import BaseStorage from "./BaseStorage";
+import { CSRF } from "@shared/constants";
+import { AppContext } from "@server/types";
 
 export default class LocalStorage extends BaseStorage {
   public async getPresignedPost(
+    ctx: AppContext,
     key: string,
     acl: string,
     maxUploadSize: number,
@@ -26,6 +29,7 @@ export default class LocalStorage extends BaseStorage {
         acl,
         maxUploadSize: String(maxUploadSize),
         contentType,
+        [CSRF.fieldName]: ctx.cookies.get(CSRF.cookieName) || "",
       },
     });
   }
@@ -132,8 +136,33 @@ export default class LocalStorage extends BaseStorage {
     };
   }
 
-  public getFileStream(key: string, range?: { start: number; end: number }) {
-    return Promise.resolve(fs.createReadStream(this.getFilePath(key), range));
+  public async getFileStream(
+    key: string,
+    range?: { start: number; end: number }
+  ) {
+    const filePath = this.getFilePath(key);
+    const exists = await fs.pathExists(filePath);
+    if (!exists) {
+      throw InternalError(`File not found at ${key}`);
+    }
+
+    if (range) {
+      if (
+        typeof range.start !== "number" ||
+        typeof range.end !== "number" ||
+        range.start < 0 ||
+        range.end < range.start
+      ) {
+        throw ValidationError("Invalid range specified");
+      }
+    }
+
+    try {
+      return fs.createReadStream(filePath, range);
+    } catch (err) {
+      Logger.error(`Failed to create read stream`, err, { filePath });
+      throw ValidationError("Unable to read file");
+    }
   }
 
   public stat(key: string) {

@@ -10,6 +10,7 @@ import {
   EditIcon,
   EmailIcon,
   PublishIcon,
+  SmileyIcon,
   StarredIcon,
   UserIcon,
 } from "outline-icons";
@@ -78,6 +79,14 @@ function Notifications() {
       ),
     },
     {
+      event: NotificationEventType.ReactionsCreate,
+      icon: <SmileyIcon />,
+      title: t("Reaction added"),
+      description: t(
+        "Receive a notification when someone reacts to your comment"
+      ),
+    },
+    {
       event: NotificationEventType.CreateCollection,
       icon: <CollectionIcon />,
       title: t("Collection created"),
@@ -138,15 +147,13 @@ function Notifications() {
   }, 500);
 
   const handleChange = React.useCallback(
-    async (ev: React.ChangeEvent<HTMLInputElement>) => {
-      await user.setNotificationEventType(
-        ev.target.name as NotificationEventType,
-        ev.target.checked
-      );
+    (eventType: NotificationEventType) => async (checked: boolean) => {
+      await user.setNotificationEventType(eventType, checked);
       showSuccessMessage();
     },
     [user, showSuccessMessage]
   );
+
   const showSuccessNotice = window.location.search === "?success";
 
   return (
@@ -196,7 +203,7 @@ function Notifications() {
               id={option.event}
               name={option.event}
               checked={!!setting}
-              onChange={handleChange}
+              onChange={handleChange(option.event)}
             />
           </SettingRow>
         );

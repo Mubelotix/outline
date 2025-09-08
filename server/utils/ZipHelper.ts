@@ -41,7 +41,7 @@ export default class ZipHelper {
           prefix: "export-",
           postfix: ".zip",
         },
-        (err, path) => {
+        (err, filePath) => {
           if (err) {
             return reject(err);
           }
@@ -51,13 +51,24 @@ export default class ZipHelper {
             currentFile: null,
           };
 
+          const handleError = (error: Error) => {
+            dest.destroy();
+            fs.remove(filePath)
+              .catch((rmErr) => {
+                Logger.error("Failed to remove tmp file", rmErr);
+              })
+              .finally(() => {
+                reject(error);
+              });
+          };
+
           const dest = fs
-            .createWriteStream(path)
+            .createWriteStream(filePath)
             .on("finish", () => {
-              Logger.debug("utils", "Writing zip complete", { path });
-              return resolve(path);
+              Logger.debug("utils", "Writing zip complete", { path: filePath });
+              return resolve(filePath);
             })
-            .on("error", reject);
+            .on("error", handleError);
 
           zip
             .generateNodeStream(
@@ -85,11 +96,9 @@ export default class ZipHelper {
                 }
               }
             )
-            .on("error", (rErr) => {
-              dest.end();
-              reject(rErr);
-            })
-            .pipe(dest);
+            .on("error", handleError)
+            .pipe(dest)
+            .on("error", handleError);
         }
       );
     });
@@ -123,55 +132,69 @@ export default class ZipHelper {
           try {
             zipfile.readEntry();
             zipfile.on("entry", function (entry: Entry) {
-              const fileName = Buffer.from(entry.fileName).toString("utf8");
-              Logger.debug("utils", "Extracting zip entry", { fileName });
+              const filePath = Buffer.from(entry.fileName).toString("utf8");
+              Logger.debug("utils", "Extracting zip entry", { filePath });
 
-              if (validateFileName(fileName)) {
-                Logger.warn("Invalid zip entry", { fileName });
+              const processNext = (error?: NodeJS.ErrnoException | null) => {
+                if (error) {
+                  zipfile.close();
+                  reject(error);
+                  return;
+                }
                 zipfile.readEntry();
-              } else if (/\/$/.test(fileName)) {
+              };
+
+              if (validateFileName(filePath)) {
+                Logger.warn("Invalid zip entry", { filePath });
+                processNext();
+                return;
+              }
+
+              if (/\/$/.test(filePath)) {
                 // directory file names end with '/'
-                fs.mkdirp(
-                  path.join(outputDir, fileName),
-                  function (mErr: Error) {
-                    if (mErr) {
-                      return reject(mErr);
-                    }
-                    zipfile.readEntry();
-                  }
+                fs.mkdirp(path.join(outputDir, filePath), (mkErr) =>
+                  processNext(mkErr)
                 );
               } else {
                 // file entry
                 zipfile.openReadStream(entry, function (rErr, readStream) {
                   if (rErr) {
-                    return reject(rErr);
+                    return processNext(rErr);
                   }
                   // ensure parent directory exists
                   fs.mkdirp(
-                    path.join(outputDir, path.dirname(fileName)),
+                    path.join(outputDir, path.dirname(filePath)),
                     function (mkErr) {
                       if (mkErr) {
-                        return reject(mkErr);
+                        return processNext(mkErr);
                       }
 
+                      const fileName = trimFileAndExt(
+                        path.basename(filePath),
+                        MAX_FILE_NAME_LENGTH
+                      );
+
                       const location = trimFileAndExt(
-                        path.join(
-                          outputDir,
-                          trimFileAndExt(fileName, MAX_FILE_NAME_LENGTH)
-                        ),
+                        path.join(outputDir, path.dirname(filePath), fileName),
                         MAX_PATH_LENGTH
                       );
+
                       const dest = fs
                         .createWriteStream(location)
-                        .on("error", reject);
+                        .on("error", (error) => {
+                          readStream.destroy();
+                          dest.destroy();
+                          processNext(error);
+                        });
 
                       readStream
-                        .on("error", (rsErr) => {
-                          dest.end();
-                          reject(rsErr);
+                        .on("error", (error) => {
+                          dest.destroy();
+                          readStream.destroy();
+                          processNext(error);
                         })
                         .on("end", function () {
-                          zipfile.readEntry();
+                          processNext();
                         })
                         .pipe(dest);
                     }
@@ -180,8 +203,14 @@ export default class ZipHelper {
               }
             });
             zipfile.on("close", resolve);
-            zipfile.on("error", reject);
+            zipfile.on("error", (error) => {
+              zipfile.close();
+              reject(error);
+            });
           } catch (zErr) {
+            if (zipfile) {
+              zipfile.close();
+            }
             reject(zErr);
           }
         }

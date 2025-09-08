@@ -1,21 +1,13 @@
 import { observer } from "mobx-react";
-import {
-  TableOfContentsIcon,
-  EditIcon,
-  PlusIcon,
-  MoonIcon,
-  MoreIcon,
-  SunIcon,
-} from "outline-icons";
-import * as React from "react";
+import { TableOfContentsIcon, EditIcon } from "outline-icons";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled, { useTheme } from "styled-components";
 import Icon from "@shared/components/Icon";
-import { useComponentSize } from "@shared/hooks/useComponentSize";
+import useMeasure from "react-use-measure";
 import { NavigationNode } from "@shared/types";
 import { altDisplay, metaDisplay } from "@shared/utils/keyboard";
-import { Theme } from "~/stores/UiStore";
 import Document from "~/models/Document";
 import Revision from "~/models/Revision";
 import { Action, Separator } from "~/components/Actions";
@@ -48,6 +40,7 @@ import { documentEditPath } from "~/utils/routeHelpers";
 import ObservingBanner from "./ObservingBanner";
 import PublicBreadcrumb from "./PublicBreadcrumb";
 import ShareButton from "./ShareButton";
+import { AppearanceAction } from "~/components/Sharing/components/Actions";
 
 type Props = {
   document: Document;
@@ -87,29 +80,27 @@ function DocumentHeader({
   const theme = useTheme();
   const team = useCurrentTeam({ rejectOnEmpty: false });
   const user = useCurrentUser({ rejectOnEmpty: false });
-  const { resolvedTheme } = ui;
   const isMobileMedia = useMobile();
   const isRevision = !!revision;
   const isEditingFocus = useEditingFocus();
   const { hasHeadings, editor } = useDocumentContext();
   const sidebarContext = useLocationSidebarContext();
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  const size = useComponentSize(ref);
+  const [measureRef, size] = useMeasure();
   const isMobile = isMobileMedia || size.width < 700;
   const isShare = !!shareId;
 
   // We cache this value for as long as the component is mounted so that if you
   // apply a template there is still the option to replace it until the user
   // navigates away from the doc
-  const [isNew] = React.useState(document.isPersistedOnce);
+  const [isNew] = useState(document.isPersistedOnce);
 
-  const handleSave = React.useCallback(() => {
+  const handleSave = useCallback(() => {
     onSave({
       done: true,
     });
   }, [onSave]);
 
-  const handleToggle = React.useCallback(() => {
+  const handleToggle = useCallback(() => {
     // Public shares, by default, show ToC on load.
     if (isShare && ui.tocVisible === undefined) {
       ui.set({ tocVisible: false });
@@ -136,13 +127,14 @@ function DocumentHeader({
         showContents
           ? t("Hide contents")
           : hasHeadings
-          ? t("Show contents")
-          : `${t("Show contents")} (${t("available when headings are added")})`
+            ? t("Show contents")
+            : `${t("Show contents")} (${t("available when headings are added")})`
       }
       shortcut={`Ctrl+${altDisplay}+h`}
       placement="bottom"
     >
       <Button
+        aria-label={t("Show contents")}
         onClick={handleToggle}
         icon={<TableOfContentsIcon />}
         borderOnHover
@@ -173,28 +165,9 @@ function DocumentHeader({
       </Tooltip>
     </Action>
   );
-  const appearanceAction = (
-    <Action>
-      <Tooltip
-        content={
-          resolvedTheme === "light" ? t("Switch to dark") : t("Switch to light")
-        }
-        placement="bottom"
-      >
-        <Button
-          icon={resolvedTheme === "light" ? <SunIcon /> : <MoonIcon />}
-          onClick={() =>
-            ui.setTheme(resolvedTheme === "light" ? Theme.Dark : Theme.Light)
-          }
-          neutral
-          borderOnHover
-        />
-      </Tooltip>
-    </Action>
-  );
 
   useKeyDown(
-    (event) => event.ctrlKey && event.altKey && event.key === "˙",
+    (event) => event.ctrlKey && event.altKey && event.code === "KeyH",
     handleToggle,
     {
       allowInInput: true,
@@ -204,7 +177,7 @@ function DocumentHeader({
   if (shareId) {
     return (
       <StyledHeader
-        ref={ref}
+        ref={measureRef}
         $hidden={isEditingFocus}
         title={
           <Flex gap={4}>
@@ -232,7 +205,7 @@ function DocumentHeader({
         }
         actions={
           <>
-            {appearanceAction}
+            <AppearanceAction />
             {can.update && !isEditing ? editAction : <div />}
           </>
         }
@@ -243,7 +216,7 @@ function DocumentHeader({
   return (
     <>
       <StyledHeader
-        ref={ref}
+        ref={measureRef}
         $hidden={isEditingFocus}
         hasSidebar
         left={
@@ -329,20 +302,7 @@ function DocumentHeader({
               !isCompact &&
               !isMobile && (
                 <Action>
-                  <NewChildDocumentMenu
-                    document={document}
-                    label={(props) => (
-                      <Tooltip
-                        content={t("New document")}
-                        shortcut="n"
-                        placement="bottom"
-                      >
-                        <Button icon={<PlusIcon />} {...props} neutral>
-                          {t("New doc")}
-                        </Button>
-                      </Tooltip>
-                    )}
-                  />
+                  <NewChildDocumentMenu document={document} />
                 </Action>
               )}
             {revision && revision.createdAt !== document.updatedAt && (
@@ -378,15 +338,9 @@ function DocumentHeader({
             <Action>
               <DocumentMenu
                 document={document}
-                isRevision={isRevision}
-                label={(props) => (
-                  <Button
-                    icon={<MoreIcon />}
-                    {...props}
-                    borderOnHover
-                    neutral
-                  />
-                )}
+                align="end"
+                neutral
+                onSelectTemplate={onSelectTemplate}
                 onFindAndReplace={editor?.commands.openFindAndReplace}
                 showToggleEmbeds={canToggleEmbeds}
                 showDisplayOptions

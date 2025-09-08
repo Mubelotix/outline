@@ -46,9 +46,11 @@ import {
 import { UserRoleHelper } from "@shared/utils/UserRoleHelper";
 import { stringToColor } from "@shared/utils/color";
 import { locales } from "@shared/utils/date";
+import { UserValidation } from "@shared/validations";
 import env from "@server/env";
 import DeleteAttachmentTask from "@server/queues/tasks/DeleteAttachmentTask";
 import { APIContext } from "@server/types";
+import { VerificationCode } from "@server/utils/VerificationCode";
 import parseAttachmentIds from "@server/utils/parseAttachmentIds";
 import { ValidationError } from "../errors";
 import Attachment from "./Attachment";
@@ -64,6 +66,7 @@ import Fix from "./decorators/Fix";
 import IsUrlOrRelativePath from "./validators/IsUrlOrRelativePath";
 import Length from "./validators/Length";
 import NotContainsUrl from "./validators/NotContainsUrl";
+import { SkipChangeset } from "./decorators/Changeset";
 
 /**
  * Flags that are available for setting on the user.
@@ -128,12 +131,20 @@ class User extends ParanoidModel<
   Partial<InferCreationAttributes<User>>
 > {
   @IsEmail
-  @Length({ max: 255, msg: "User email must be 255 characters or less" })
+  @Length({
+    min: 1,
+    max: UserValidation.maxEmailLength,
+    msg: `User email must be between 1 and ${UserValidation.maxEmailLength} characters`,
+  })
   @Column
   email: string | null;
 
   @NotContainsUrl
-  @Length({ max: 255, msg: "User name must be 255 characters or less" })
+  @Length({
+    min: 1,
+    max: UserValidation.maxNameLength,
+    msg: `User name must be between 1 and ${UserValidation.maxNameLength} characters`,
+  })
   @Column
   name: string;
 
@@ -147,22 +158,27 @@ class User extends ParanoidModel<
 
   @IsDate
   @Column
+  @SkipChangeset
   lastActiveAt: Date | null;
 
   @IsIP
   @Column
+  @SkipChangeset
   lastActiveIp: string | null;
 
   @IsDate
   @Column
+  @SkipChangeset
   lastSignedInAt: Date | null;
 
   @IsIP
   @Column
+  @SkipChangeset
   lastSignedInIp: string | null;
 
   @IsDate
   @Column
+  @SkipChangeset
   lastSigninEmailSentAt: Date | null;
 
   @IsDate
@@ -494,13 +510,13 @@ class User extends ParanoidModel<
     });
   };
 
-  updateSignedIn = (ip: string) => {
+  updateSignedIn = (ctx: Context | APIContext) => {
     const now = new Date();
     this.lastActiveAt = now;
-    this.lastActiveIp = ip;
+    this.lastActiveIp = ctx.request.ip;
     this.lastSignedInAt = now;
-    this.lastSignedInIp = ip;
-    return this.save({ hooks: false });
+    this.lastSignedInIp = ctx.request.ip;
+    return this.save({ hooks: false, transaction: ctx.state.transaction });
   };
 
   /**
@@ -583,6 +599,22 @@ class User extends ParanoidModel<
     );
 
   /**
+   * Generate a 6-digit verification code for email authentication
+   * and store it in Redis with a 10-minute TTL.
+   *
+   * @returns The 6-digit verification code
+   */
+  getEmailVerificationCode = async (): Promise<string> => {
+    if (!this.email) {
+      throw ValidationError("Email is required");
+    }
+
+    const code = VerificationCode.generate();
+    await VerificationCode.store(this.email, code);
+    return code;
+  };
+
+  /**
    * Returns a temporary token that can be used to update the users
    * email address.
    *
@@ -618,6 +650,52 @@ class User extends ParanoidModel<
     });
 
   // hooks
+
+  @BeforeDestroy
+  static async checkLastUser(
+    model: User,
+    { transaction }: { transaction: Transaction }
+  ) {
+    const usersCount = await this.count({
+      where: {
+        teamId: model.teamId,
+      },
+      transaction,
+    });
+
+    if (usersCount === 1) {
+      throw ValidationError(
+        "Cannot delete last user on the team, delete the workspace instead."
+      );
+    }
+  }
+
+  @BeforeDestroy
+  static async checkLastAdmin(
+    model: User,
+    { transaction }: { transaction: Transaction }
+  ) {
+    if (model.role !== UserRole.Admin) {
+      return;
+    }
+
+    const otherAdminsCount = await this.count({
+      where: {
+        teamId: model.teamId,
+        role: UserRole.Admin,
+        id: {
+          [Op.ne]: model.id,
+        },
+      },
+      transaction,
+    });
+
+    if (otherAdminsCount === 0) {
+      throw ValidationError(
+        "Cannot delete account as only admin. Please make another user admin and try again."
+      );
+    }
+  }
 
   @BeforeDestroy
   static removeIdentifyingInfo = async (
@@ -717,7 +795,7 @@ class User extends ParanoidModel<
       });
 
       if (attachment) {
-        await DeleteAttachmentTask.schedule({
+        await new DeleteAttachmentTask().schedule({
           attachmentId: attachment.id,
           teamId: model.teamId,
         });
@@ -728,7 +806,7 @@ class User extends ParanoidModel<
   static findByEmail = async function (ctx: APIContext, email: string) {
     return this.findOne({
       where: {
-        teamId: ctx.context.auth.user.teamId,
+        teamId: ctx.state.auth.user.teamId,
         email: email.trim().toLowerCase(),
       },
       ...ctx.context,

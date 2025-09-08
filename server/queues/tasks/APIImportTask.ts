@@ -37,7 +37,7 @@ type Props = {
 };
 
 export default abstract class APIImportTask<
-  T extends ImportableIntegrationService
+  T extends ImportableIntegrationService,
 > extends BaseTask<Props> {
   /**
    * Run the import task.
@@ -175,7 +175,11 @@ export default abstract class APIImportTask<
         createContext({
           user: associatedImport.createdBy,
           transaction,
-        })
+        }),
+        undefined,
+        {
+          persist: false,
+        }
       );
     });
 
@@ -325,7 +329,9 @@ export default abstract class APIImportTask<
         ([url, attachment]) => ({ attachmentId: attachment.id, url })
       );
       // publish task after attachments are persisted in DB.
-      const job = await UploadAttachmentsForImportTask.schedule(uploadItems);
+      const job = await new UploadAttachmentsForImportTask().schedule(
+        uploadItems
+      );
       await job.finished();
     } catch (err) {
       // upload attachments failure is not critical enough to fail the whole import.

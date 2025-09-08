@@ -11,131 +11,153 @@ import CollectionIcon from "~/components/Icons/CollectionIcon";
 import { useLocationSidebarContext } from "~/hooks/useLocationSidebarContext";
 import usePolicy from "~/hooks/usePolicy";
 import useStores from "~/hooks/useStores";
-import { MenuInternalLink } from "~/types";
 import { archivePath, settingsPath, trashPath } from "~/utils/routeHelpers";
+import { createInternalLinkActionV2 } from "~/actions";
+import { ActiveDocumentSection } from "~/actions/sections";
 
 type Props = {
   children?: React.ReactNode;
   document: Document;
   onlyText?: boolean;
+  reverse?: boolean;
+  /**
+   * Maximum number of items to show in the breadcrumb.
+   * If value is less than or equals to 0, no items will be shown.
+   * If value is undefined, all items will be shown.
+   */
+  maxDepth?: number;
 };
 
-function useCategory(document: Document): MenuInternalLink | null {
-  const { t } = useTranslation();
-
-  if (document.isDeleted) {
-    return {
-      type: "route",
-      icon: <TrashIcon />,
-      title: t("Trash"),
-      to: trashPath(),
-    };
-  }
-
-  if (document.isArchived) {
-    return {
-      type: "route",
-      icon: <ArchiveIcon />,
-      title: t("Archive"),
-      to: archivePath(),
-    };
-  }
-
-  if (document.template) {
-    return {
-      type: "route",
-      icon: <ShapesIcon />,
-      title: t("Templates"),
-      to: settingsPath("templates"),
-    };
-  }
-
-  return null;
-}
-
 function DocumentBreadcrumb(
-  { document, children, onlyText }: Props,
+  { document, children, onlyText, reverse = false, maxDepth }: Props,
   ref: React.RefObject<HTMLDivElement> | null
 ) {
   const { collections } = useStores();
   const { t } = useTranslation();
-  const category = useCategory(document);
   const sidebarContext = useLocationSidebarContext();
   const collection = document.collectionId
     ? collections.get(document.collectionId)
     : undefined;
   const can = usePolicy(collection);
+  const depth = maxDepth === undefined ? undefined : Math.max(0, maxDepth);
 
   React.useEffect(() => {
     void document.loadRelations({ withoutPolicies: true });
   }, [document]);
 
-  let collectionNode: MenuInternalLink | undefined;
+  const path = document.pathTo.slice(0, -1);
 
-  if (collection && can.readDocument) {
-    collectionNode = {
-      type: "route",
-      title: collection.name,
-      icon: <CollectionIcon collection={collection} expanded />,
-      to: {
-        pathname: collection.path,
-        state: { sidebarContext },
-      },
-    };
-  } else if (document.isCollectionDeleted) {
-    collectionNode = {
-      type: "route",
-      title: t("Deleted Collection"),
-      icon: undefined,
-      to: "",
-    };
-  }
-
-  const path = document.pathTo;
-
-  const items = React.useMemo(() => {
-    const output = [];
-
-    if (category) {
-      output.push(category);
+  const actions = React.useMemo(() => {
+    if (depth === 0) {
+      return [];
     }
 
-    if (collectionNode) {
-      output.push(collectionNode);
-    }
+    const outputActions = [
+      createInternalLinkActionV2({
+        name: t("Trash"),
+        section: ActiveDocumentSection,
+        icon: <TrashIcon />,
+        visible: document.isDeleted,
+        to: trashPath(),
+      }),
+      createInternalLinkActionV2({
+        name: t("Archive"),
+        section: ActiveDocumentSection,
+        icon: <ArchiveIcon />,
+        visible: document.isArchived,
+        to: archivePath(),
+      }),
+      createInternalLinkActionV2({
+        name: t("Templates"),
+        section: ActiveDocumentSection,
+        icon: <ShapesIcon />,
+        visible: document.template,
+        to: settingsPath("templates"),
+      }),
+      createInternalLinkActionV2({
+        name: collection?.name,
+        section: ActiveDocumentSection,
+        icon: collection ? (
+          <CollectionIcon collection={collection} expanded />
+        ) : undefined,
+        visible: !!(collection && can.readDocument),
+        to: collection
+          ? {
+              pathname: collection.path,
+              state: { sidebarContext },
+            }
+          : "",
+      }),
+      createInternalLinkActionV2({
+        name: t("Deleted Collection"),
+        section: ActiveDocumentSection,
+        visible: document.isCollectionDeleted,
+        to: "",
+      }),
+      ...path.map((node) => {
+        const title = node.title || t("Untitled");
+        return createInternalLinkActionV2({
+          name: node.icon ? (
+            <>
+              <StyledIcon value={node.icon} color={node.color} /> {title}
+            </>
+          ) : (
+            title
+          ),
+          section: ActiveDocumentSection,
+          to: {
+            pathname: node.url,
+            state: { sidebarContext },
+          },
+        });
+      }),
+    ];
 
-    path.slice(0, -1).forEach((node: NavigationNode) => {
-      const title = node.title || t("Untitled");
-      output.push({
-        type: "route",
-        title: node.icon ? (
-          <>
-            <StyledIcon value={node.icon} color={node.color} /> {title}
-          </>
-        ) : (
-          title
-        ),
-        to: {
-          pathname: node.url,
-          state: { sidebarContext },
-        },
-      });
-    });
-    return output;
-  }, [t, path, category, sidebarContext, collectionNode]);
+    return reverse
+      ? depth !== undefined
+        ? outputActions.slice(-depth)
+        : outputActions
+      : depth !== undefined
+        ? outputActions.slice(0, depth)
+        : outputActions;
+  }, [
+    t,
+    document,
+    collection,
+    can.readDocument,
+    sidebarContext,
+    path,
+    reverse,
+    depth,
+  ]);
 
   if (!collections.isLoaded) {
     return null;
   }
 
-  if (onlyText === true) {
+  if (onlyText) {
+    if (depth === 0) {
+      return <></>;
+    }
+
+    const slicedPath = reverse
+      ? path.slice(depth && -depth)
+      : path.slice(0, depth);
+
+    const showCollection =
+      collection &&
+      (!reverse || depth === undefined || slicedPath.length < depth);
+
     return (
       <>
-        {collection?.name}
-        {path.slice(0, -1).map((node: NavigationNode) => (
+        {showCollection && collection.name}
+        {slicedPath.map((node: NavigationNode, index: number) => (
           <React.Fragment key={node.id}>
-            <SmallSlash />
+            {showCollection && <SmallSlash />}
             {node.title || t("Untitled")}
+            {!showCollection && index !== slicedPath.length - 1 && (
+              <SmallSlash />
+            )}
           </React.Fragment>
         ))}
       </>
@@ -143,7 +165,7 @@ function DocumentBreadcrumb(
   }
 
   return (
-    <Breadcrumb items={items} ref={ref} highlightFirstItem>
+    <Breadcrumb actions={actions} ref={ref} highlightFirstItem>
       {children}
     </Breadcrumb>
   );

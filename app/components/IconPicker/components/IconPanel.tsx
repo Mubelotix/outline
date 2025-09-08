@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import { IconType } from "@shared/types";
@@ -155,11 +155,12 @@ const IconPanel = ({
         baseIcons,
       ];
 
-  React.useEffect(() => {
-    if (scrollableRef.current) {
-      scrollableRef.current.scrollTop = 0;
+  React.useLayoutEffect(() => {
+    if (!panelActive) {
+      return;
     }
-    searchRef.current?.focus();
+    scrollableRef.current?.scroll({ top: 0 });
+    requestAnimationFrame(() => searchRef.current?.focus());
   }, [panelActive]);
 
   return (
