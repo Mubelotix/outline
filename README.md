@@ -1,5 +1,14 @@
 # This fork allows authentication based on a header-value (you set with your proxy)
 
+Outline devs believe you don't need this feature. If you want it merged to outline, support [#7758](https://github.com/outline/outline/pull/7758)
+
+---
+
+
+
+
+
+
 <p align="center">
   <img src="https://user-images.githubusercontent.com/31465/34380645-bd67f474-eb0b-11e7-8d03-0151c1730654.png" height="29" />
 </p>
