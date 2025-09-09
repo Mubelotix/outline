@@ -391,9 +391,7 @@ export class Environment {
   @Public
   public HEADER_AUTH_ENABLED =
     !!this.HEADER_AUTH_EMAIL &&
-    !!this.HEADER_AUTH_NAME &&
-    !!this.HEADER_AUTH_TEAM_ID &&
-    !!this.HEADER_AUTH_IP;
+    !!this.HEADER_AUTH_NAME;
 
   // Third-party services
 

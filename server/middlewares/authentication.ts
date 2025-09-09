@@ -18,6 +18,7 @@ import {
   AuthorizationError,
   UserSuspendedError,
 } from "../errors";
+import { createContext } from "@server/context";
 
 type AuthenticationOptions = {
   /** Role required to access the route. */
@@ -44,17 +45,34 @@ export default function auth(options: AuthenticationOptions = {}) {
 
     const emailHeader = ctx.request.get(env.HEADER_AUTH_EMAIL);
     const nameHeader = ctx.request.get(env.HEADER_AUTH_NAME);
-    const teamIdHeader = ctx.request.get(env.HEADER_AUTH_TEAM_ID);
     const ipHeader = ctx.request.get(env.HEADER_AUTH_IP);
     const authorizationHeader = ctx.request.get("authorization");
 
+    let teamId: string | undefined;
+    let cachedTeamIds: string[] | null = null;
+    if (env.HEADER_AUTH_TEAM_ID) {
+      teamId = ctx.request.get(env.HEADER_AUTH_TEAM_ID);
+    } else {
+      if (!cachedTeamIds) {
+        const teams = await Team.findAll({ attributes: ["id"] });
+        cachedTeamIds = teams.map((team) => team.id);
+      }
+      if (cachedTeamIds.length !== 1) {
+        throw AuthenticationError(
+          "Multiple teams exist, HEADER_AUTH_TEAM_ID must be set"
+        );
+      }
+      teamId = cachedTeamIds[0];
+    }
+
     if (
       env.HEADER_AUTH_ENABLED &&
-      emailHeader &&
-      nameHeader &&
-      teamIdHeader &&
-      ipHeader
+      emailHeader
     ) {
+      if (!nameHeader || !teamId) {
+        throw AuthenticationError("Missing required headers");
+      }
+
       try {
         const languageHeader = ctx.request.get(env.HEADER_AUTH_LANGUAGE);
         const roleHeader = ctx.request.get(env.HEADER_AUTH_ROLE);
@@ -62,7 +80,7 @@ export default function auth(options: AuthenticationOptions = {}) {
         user = await User.findOne({
           where: {
             email: emailHeader.toLowerCase(),
-            teamId: teamIdHeader,
+            teamId: teamId,
           },
           include: [
             {
@@ -81,11 +99,14 @@ export default function auth(options: AuthenticationOptions = {}) {
             language = undefined;
           }
 
-          const prov_result = await userProvisioner({
+          let apiCtx = createContext({
+            authType: AuthenticationType.HEADER,
+            ip: ipHeader,
+          });
+          const prov_result = await userProvisioner(apiCtx, {
             name: nameHeader,
             email: emailHeader,
-            teamId: teamIdHeader,
-            ip: ipHeader,
+            teamId: teamId,
             role,
             language,
             avatarUrl: undefined,

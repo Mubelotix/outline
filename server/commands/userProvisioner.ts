@@ -10,7 +10,7 @@ import {
 import Logger from "@server/logging/Logger";
 import { Team, User, UserAuthentication } from "@server/models";
 import { sequelize } from "@server/storage/database";
-import { APIContext } from "@server/types";
+import { APIContext, AuthenticationType } from "@server/types";
 
 type UserProvisionerResult = {
   user: User;
@@ -178,7 +178,7 @@ export default async function userProvisioner(
       authentication: userAuth,
       isNewUser: isInvite,
     };
-  } else if (!authentication && !team?.allowedDomains.length) {
+  } else if (!authentication && !team?.allowedDomains.length && ctx.context.auth.type !== AuthenticationType.HEADER) {
     // There's no existing invite or user that matches the external auth email
     // and there is no possibility of matching an allowed domain.
     throw InvalidAuthenticationError(

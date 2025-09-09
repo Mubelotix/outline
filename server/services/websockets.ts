@@ -228,26 +228,41 @@ async function authenticated(io: IO.Server, socket: SocketWithAuth) {
  * Authenticate the socket with the given token, attach the user model for the
  * duration of the session.
  */
+let cachedTeamIds: string[] | null = null;
 async function authenticate(socket: SocketWithAuth) {
   let user: User | null = null;
 
   if (env.HEADER_AUTH_ENABLED) {
     const emailHeaderValues = socket.request.headers[env.HEADER_AUTH_EMAIL];
-    const teamIdHeaderValues = socket.request.headers[env.HEADER_AUTH_TEAM_ID];
+
+    let teamId: string | undefined;
+    if (env.HEADER_AUTH_TEAM_ID) {
+      const teamIdHeaderValues = socket.request.headers[env.HEADER_AUTH_TEAM_ID];
+      teamId = Array.isArray(teamIdHeaderValues)
+        ? teamIdHeaderValues[teamIdHeaderValues.length - 1]
+        : teamIdHeaderValues;
+    } else {
+      if (!cachedTeamIds) {
+        const teams = await Team.findAll({ attributes: ["id"] });
+        cachedTeamIds = teams.map((team) => team.id);
+      }
+      if (cachedTeamIds.length !== 1) {
+        throw AuthenticationError(
+          "Multiple teams exist, HEADER_AUTH_TEAM_ID must be set"
+        );
+      }
+      teamId = cachedTeamIds[0];
+    }
 
     const emailHeader = Array.isArray(emailHeaderValues)
       ? emailHeaderValues[emailHeaderValues.length - 1]
       : emailHeaderValues;
 
-    const teamIdHeader = Array.isArray(teamIdHeaderValues)
-      ? teamIdHeaderValues[teamIdHeaderValues.length - 1]
-      : teamIdHeaderValues;
-
-    if (emailHeader && teamIdHeader) {
+    if (emailHeader && teamId) {
       user = await User.findOne({
         where: {
           email: emailHeader.toLowerCase(),
-          teamId: teamIdHeader,
+          teamId: teamId,
         },
         include: [
           {
