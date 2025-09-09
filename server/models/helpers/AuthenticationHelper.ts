@@ -25,34 +25,23 @@ export default class AuthenticationHelper {
   public static providersForTeam(team?: Team) {
     const isCloudHosted = env.isCloudHosted;
 
-    console.log("isCloudHosted", isCloudHosted);
-    console.log("team", team);
-    console.log(
-      "team.authenticationProviders",
-      team?.authenticationProviders
-    );
-
-    let r = AuthenticationHelper.providers
+    return AuthenticationHelper.providers
       .sort((hook) => (hook.value.id === "email" ? 1 : -1))
       .filter((hook) => {
         // Email sign-in is an exception as it does not have an authentication
         // provider using passport, instead it exists as a boolean option.
         if (hook.value.id === "email") {
-          console.log("team?.emailSigninEnabled", team?.emailSigninEnabled);
           return team?.emailSigninEnabled;
         }
 
         // If no team return all possible authentication providers except email.
         if (!team) {
-          console.log("true");
           return true;
         }
 
         const authProvider = find(team.authenticationProviders, {
           name: hook.value.id,
         });
-
-        console.log("authProvider", authProvider);
 
         // If cloud hosted then the auth provider must be enabled for the team,
         // If self-hosted then it must not be actively disabled, otherwise all
@@ -62,9 +51,5 @@ export default class AuthenticationHelper {
           (isCloudHosted && authProvider?.enabled)
         );
       });
-
-    console.log("r", r);
-
-    return r;
   }
 }
