@@ -16,7 +16,7 @@ RUN yarn install --no-optional --frozen-lockfile --network-timeout 1000000 && \
 
 COPY . .
 ARG CDN_URL
-RUN yarn build --production
+RUN yarn build
 
 RUN rm -rf node_modules
 
