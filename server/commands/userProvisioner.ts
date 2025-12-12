@@ -10,7 +10,7 @@ import {
 import Logger from "@server/logging/Logger";
 import { Team, User, UserAuthentication } from "@server/models";
 import { sequelize } from "@server/storage/database";
-import { APIContext, AuthenticationType } from "@server/types";
+import { APIContext } from "@server/types";
 import { UserFlag } from "@server/models/User";
 import UploadUserAvatarTask from "@server/queues/tasks/UploadUserAvatarTask";
 
