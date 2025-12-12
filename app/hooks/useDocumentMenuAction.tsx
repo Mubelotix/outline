@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { InputIcon, SearchIcon } from "outline-icons";
-import { ActionV2Separator, createActionV2 } from "~/actions";
+import { ActionSeparator, createAction } from "~/actions";
 import {
   restoreDocument,
   unsubscribeDocument,
@@ -43,8 +43,8 @@ import { useTemplateMenuActions } from "./useTemplateMenuActions";
 import { useMenuAction } from "./useMenuAction";
 
 type Props = {
-  /** Document for which the actions are generated */
-  document: Document;
+  /** Document ID for which the actions are generated */
+  documentId: string;
   /** Invoked when the "Find and replace" menu item is clicked */
   onFindAndReplace?: () => void;
   /** Invoked when the "Rename" menu item is clicked */
@@ -54,7 +54,7 @@ type Props = {
 };
 
 export function useDocumentMenuAction({
-  document,
+  documentId,
   onFindAndReplace,
   onRename,
   onSelectTemplate,
@@ -62,11 +62,10 @@ export function useDocumentMenuAction({
   const { t } = useTranslation();
   const isMobile = useMobile();
   const user = useCurrentUser();
-
-  const can = usePolicy(document);
+  const can = usePolicy(documentId);
 
   const templateMenuActions = useTemplateMenuActions({
-    document,
+    documentId,
     onSelectTemplate,
   });
 
@@ -78,16 +77,16 @@ export function useDocumentMenuAction({
       unstarDocument,
       subscribeDocument,
       unsubscribeDocument,
-      createActionV2({
+      createAction({
         name: `${t("Find and replace")}…`,
         section: ActiveDocumentSection,
         icon: <SearchIcon />,
         visible: !!onFindAndReplace && isMobile,
         perform: () => onFindAndReplace?.(),
       }),
-      ActionV2Separator,
+      ActionSeparator,
       editDocument,
-      createActionV2({
+      createAction({
         name: `${t("Rename")}…`,
         section: ActiveDocumentSection,
         icon: <InputIcon />,
@@ -107,7 +106,7 @@ export function useDocumentMenuAction({
       applyTemplateFactory({ actions: templateMenuActions }),
       pinDocument,
       createDocumentFromTemplate,
-      ActionV2Separator,
+      ActionSeparator,
       openDocumentComments,
       openDocumentHistory,
       openDocumentInsights,
@@ -115,7 +114,7 @@ export function useDocumentMenuAction({
       copyDocument,
       printDocument,
       searchInDocument,
-      ActionV2Separator,
+      ActionSeparator,
       deleteDocument,
       permanentlyDeleteDocument,
       leaveDocument,

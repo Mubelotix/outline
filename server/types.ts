@@ -203,25 +203,19 @@ export type DocumentEvent = BaseEvent<Document> &
           | "documents.restore";
         documentId: string;
         collectionId: string;
-        data: {
-          title: string;
+        data?: {
           source?: "import";
         };
       }
     | {
         name: "documents.unpublish";
         documentId: string;
-        collectionId: string;
+        collectionId?: string;
       }
     | {
         name: "documents.unarchive";
         documentId: string;
         collectionId: string;
-        data: {
-          title: string;
-          /** Id of collection from which the document is unarchived */
-          sourceCollectionId: string;
-        };
       }
     | {
         name:
@@ -231,9 +225,7 @@ export type DocumentEvent = BaseEvent<Document> &
         documentId: string;
         collectionId: string;
         createdAt: string;
-        data: {
-          title: string;
-          autosave: boolean;
+        data?: {
           done: boolean;
         };
       }
@@ -242,10 +234,6 @@ export type DocumentEvent = BaseEvent<Document> &
         documentId: string;
         collectionId: string;
         createdAt: string;
-        data: {
-          title: string;
-          previousTitle: string;
-        };
       }
     | DocumentMovedEvent
   );

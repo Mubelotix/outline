@@ -10,6 +10,8 @@ import Flex from "~/components/Flex";
 import Input, { LabelText } from "~/components/Input";
 import isCloudHosted from "~/utils/isCloudHosted";
 import Switch from "../Switch";
+import EventBoundary from "@shared/components/EventBoundary";
+import { InputClientType } from "./InputClientType";
 
 export interface FormData {
   name: string;
@@ -19,6 +21,7 @@ export interface FormData {
   avatarUrl: string;
   redirectUris: string[];
   published: boolean;
+  clientType: "confidential" | "public";
 }
 
 export const OAuthClientForm = observer(function OAuthClientForm_({
@@ -46,6 +49,7 @@ export const OAuthClientForm = observer(function OAuthClientForm_({
       avatarUrl: oauthClient?.avatarUrl ?? "",
       redirectUris: oauthClient?.redirectUris ?? [],
       published: oauthClient?.published ?? false,
+      clientType: oauthClient?.clientType ?? "confidential",
     },
   });
 
@@ -62,20 +66,33 @@ export const OAuthClientForm = observer(function OAuthClientForm_({
             control={control}
             name="avatarUrl"
             render={({ field }) => (
-              <ImageInput
-                alt={t("OAuth client icon")}
-                onSuccess={(url) => field.onChange(url)}
-                onError={(err) => setError("avatarUrl", { message: err })}
-                model={{
-                  id: oauthClient?.id,
-                  avatarUrl: field.value,
-                  initial: getValues().name[0],
-                }}
-                borderRadius={0}
-              />
+              <EventBoundary>
+                <ImageInput
+                  alt={t("OAuth client icon")}
+                  onSuccess={(url) => field.onChange(url)}
+                  onError={(err) => setError("avatarUrl", { message: err })}
+                  model={{
+                    id: oauthClient?.id,
+                    avatarUrl: field.value,
+                    initial: getValues().name[0],
+                  }}
+                  borderRadius={0}
+                />
+              </EventBoundary>
             )}
           />
         </label>
+        <Controller
+          control={control}
+          name="clientType"
+          render={({ field }) => (
+            <InputClientType
+              value={field.value}
+              onChange={field.onChange}
+              ref={field.ref}
+            />
+          )}
+        />
         <Input
           type="text"
           label={t("Name")}

@@ -22,6 +22,7 @@ export default createGlobalStyle<Props>`
     padding: 0;
     print-color-adjust: exact;
     --pointer: ${(props) => (props.useCursorPointer ? "pointer" : "default")};
+    --scrollbar-width: calc(100vw - 100cqw);
     overscroll-behavior-x: none;
 
     @media print {
@@ -123,5 +124,12 @@ export default createGlobalStyle<Props>`
     --sar: env(safe-area-inset-right);
     --sab: env(safe-area-inset-bottom);
     --sal: env(safe-area-inset-left);
+  }
+
+  /* Mermaid.js injects these into the root of the page. It's very annoying, but we have to deal with it or they affect layout */
+  [id^="doffscreen-mermaid"] {
+      position: absolute !important;
+      left: -9999px !important;
+      top: -9999px !important;
   }
 `;

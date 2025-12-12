@@ -1,4 +1,5 @@
 import { action, observable } from "mobx";
+import { v4 as uuidv4 } from "uuid";
 import { toggleMark } from "prosemirror-commands";
 import { Node, Slice } from "prosemirror-model";
 import {
@@ -8,7 +9,6 @@ import {
   TextSelection,
 } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import { v4 } from "uuid";
 import Extension, { WidgetProps } from "@shared/editor/lib/Extension";
 import { codeLanguages } from "@shared/editor/lib/code";
 import isMarkdown from "@shared/editor/lib/isMarkdown";
@@ -144,7 +144,7 @@ export default class PasteHandler extends Extension {
                                   type: MentionType.Document,
                                   modelId: document.id,
                                   label: document.titleWithDefault,
-                                  id: v4(),
+                                  id: uuidv4(),
                                 })
                               )
                             );
@@ -189,7 +189,7 @@ export default class PasteHandler extends Extension {
                                   type: MentionType.Collection,
                                   modelId: collection.id,
                                   label: collection.name,
-                                  id: v4(),
+                                  id: uuidv4(),
                                 })
                               )
                             );
@@ -282,28 +282,22 @@ export default class PasteHandler extends Extension {
 
               const slice = paste.slice(0);
               const tr = view.state.tr;
-              let currentPos = view.state.selection.from;
 
-              // If the pasted content is a single paragraph then we loop over
-              // it's content and insert each node one at a time to allow it to
-              // be pasted inline with surrounding content.
+              // If the pasted content is a single paragraph then we slice
+              // the outer paragraph so that the text is inserted directly.
               const singleNode = sliceSingleNode(slice);
               if (singleNode?.type === this.editor.schema.nodes.paragraph) {
-                singleNode.forEach((node) => {
-                  tr.insert(currentPos, node);
-                  currentPos += node.nodeSize;
-                });
-              } else {
-                if (singleNode) {
-                  if (isList(singleNode, this.editor.schema)) {
-                    this.handleList(singleNode);
-                    return true;
-                  } else {
-                    tr.replaceSelectionWith(singleNode, this.shiftKey);
-                  }
+                const slice = new Slice(singleNode.content, 0, 0);
+                tr.replaceSelection(slice);
+              } else if (singleNode) {
+                if (isList(singleNode, this.editor.schema)) {
+                  this.handleList(singleNode);
+                  return true;
                 } else {
-                  tr.replaceSelection(slice);
+                  tr.replaceSelectionWith(singleNode, this.shiftKey);
                 }
+              } else {
+                tr.replaceSelection(slice);
               }
 
               view.dispatch(
@@ -459,6 +453,7 @@ export default class PasteHandler extends Extension {
     const { view, schema } = this.editor;
     const { state } = view;
     const { from } = state.selection;
+    let tr = state.tr;
 
     const links: string[] = [];
     let allLinks = true;
@@ -480,22 +475,26 @@ export default class PasteHandler extends Extension {
       return false;
     });
 
-    if (!allLinks || !links.length) {
-      return;
-    }
+    const showPasteMenu = allLinks && links.length;
 
-    const placeholderId = links[0];
-    const to = from + listNode.nodeSize;
+    // it's possible that the links can be converted to mentions
+    if (showPasteMenu) {
+      const placeholderId = links[0];
+      const to = from + listNode.nodeSize;
 
-    const transaction = state.tr
-      .replaceSelectionWith(listNode)
-      .setMeta(this.key, {
+      tr = state.tr.replaceSelectionWith(listNode).setMeta(this.key, {
         add: { from, to, id: placeholderId },
       });
+    } else {
+      // Paste as simple list
+      tr = tr.replaceSelectionWith(listNode, this.shiftKey);
+    }
 
-    view.dispatch(transaction);
+    view.dispatch(tr);
 
-    this.showPasteMenu(links);
+    if (showPasteMenu) {
+      this.showPasteMenu(links);
+    }
   }
 
   private placeholderId = () =>

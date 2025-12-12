@@ -348,12 +348,9 @@ async function validateAuthenticationSecondStage(
   options: AuthenticationOptions,
 ): Promise<void> {
   if (user.isSuspended) {
-    const suspendingAdmin = await User.findOne({
-      where: {
-        id: user.suspendedById!,
-      },
-      paranoid: false,
-    });
+    const suspendingAdmin = user.suspendedById
+      ? await User.findByPk(user.suspendedById)
+      : undefined;
     throw UserSuspendedError({
       adminEmail: suspendingAdmin?.email || undefined,
     });

@@ -24,13 +24,18 @@ import { ProsemirrorHelper } from "../../utils/ProsemirrorHelper";
 import { CSVHelper } from "../../utils/csv";
 import { chainTransactions } from "../lib/chainTransactions";
 import {
+  getAllSelectedColumns,
   getCellsInColumn,
   getCellsInRow,
   isHeaderEnabled,
   isTableSelected,
+  getWidthFromDom,
+  getWidthFromNodes,
 } from "../queries/table";
 import { TableLayout } from "../types";
 import { collapseSelection } from "./collapseSelection";
+import { RowSelection } from "../selection/RowSelection";
+import { ColumnSelection } from "../selection/ColumnSelection";
 
 export function createTable({
   rowsCount,
@@ -170,6 +175,100 @@ export function exportTable({
 
     return true;
   };
+}
+
+/**
+ * A Commands that distributes the width of all selected columns evenly between them in the current table selection.
+ *
+ *
+ * @returns {Command}
+ */
+export function distributeColumns(): Command {
+  return (state, dispatch, view) => {
+    if (!isInTable(state) || !dispatch) {
+      return false;
+    }
+
+    const rect = selectedRect(state);
+    const { tr, doc } = state;
+    const { map } = rect;
+    const selectedColumns = getAllSelectedColumns(state);
+    if (selectedColumns.length <= 1) {
+      return false;
+    }
+
+    const hasNullWidth = selectedColumns.some((colIndex) =>
+      isNullWidth({ state, colIndex })
+    );
+
+    // whenever we can, we want to take the column width that prose-mirror sets
+    // since that will always be accurate, when set
+    const totalWidth = hasNullWidth
+      ? getWidthFromDom({ view, rect, selectedColumns })
+      : getWidthFromNodes({ state, selectedColumns });
+
+    if (totalWidth < 1) {
+      return false;
+    }
+
+    const evenWidth = totalWidth / selectedColumns.length;
+    const isLastColSelected = selectedColumns.includes(map.width - 1);
+
+    const tableNode = doc.nodeAt(rect.tableStart - 1);
+    const isFullWidth = tableNode?.attrs.layout === TableLayout.fullWidth;
+
+    for (let row = 0; row < map.height; row++) {
+      const cellsInRow = getCellsInRow(row)(state);
+      if (!cellsInRow || cellsInRow.length < 1) {
+        continue;
+      }
+
+      selectedColumns.forEach((colIndex) => {
+        const pos = cellsInRow[colIndex];
+        const cell = pos !== undefined ? doc.nodeAt(pos) : null;
+        if (!cell) {
+          return;
+        }
+
+        const isLastColumn = colIndex === map.width - 1;
+        const shouldKeepNull =
+          isLastColumn && isLastColSelected && isFullWidth && hasNullWidth;
+
+        tr.setNodeMarkup(pos, undefined, {
+          ...cell.attrs,
+          colwidth: shouldKeepNull ? null : [evenWidth],
+        });
+      });
+    }
+
+    dispatch(tr);
+    return true;
+  };
+}
+
+/**
+ * Determines whether the width of a specified column is null.
+ *
+ * @param state - The current editor state.
+ * @param colIndex - The index of the column to check.
+ *
+ * @returns {boolean} True if the column width is null, false otherwise.
+ */
+function isNullWidth({
+  state,
+  colIndex,
+}: {
+  state: EditorState;
+  colIndex: number;
+}): boolean {
+  const firstRowCells = getCellsInRow(0)(state);
+  const cell =
+    firstRowCells?.[colIndex] !== undefined
+      ? state.doc.nodeAt(firstRowCells[colIndex])
+      : null;
+
+  const colwidth = cell?.attrs.colwidth;
+  return !colwidth?.[0];
 }
 
 export function sortTable({
@@ -492,8 +591,8 @@ export function selectRow(index: number, expand = false): Command {
       const $pos = state.doc.resolve(rect.tableStart + pos);
       const rowSelection =
         expand && state.selection instanceof CellSelection
-          ? CellSelection.rowSelection(state.selection.$anchorCell, $pos)
-          : CellSelection.rowSelection($pos);
+          ? RowSelection.rowSelection(state.selection.$anchorCell, $pos)
+          : RowSelection.rowSelection($pos);
       dispatch(state.tr.setSelection(rowSelection));
       return true;
     }
@@ -509,8 +608,8 @@ export function selectColumn(index: number, expand = false): Command {
       const $pos = state.doc.resolve(rect.tableStart + pos);
       const colSelection =
         expand && state.selection instanceof CellSelection
-          ? CellSelection.colSelection(state.selection.$anchorCell, $pos)
-          : CellSelection.colSelection($pos);
+          ? ColumnSelection.colSelection(state.selection.$anchorCell, $pos)
+          : ColumnSelection.colSelection($pos);
       dispatch(state.tr.setSelection(colSelection));
       return true;
     }

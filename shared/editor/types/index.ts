@@ -41,6 +41,8 @@ export type MenuItem = {
   active?: (state: EditorState) => boolean;
   appendSpace?: boolean;
   skipIcon?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
 };
 
 export type ComponentProps = {
@@ -51,3 +53,8 @@ export type ComponentProps = {
   isEditable: boolean;
   getPos: () => number;
 };
+
+export interface NodeMarkAttr {
+  type: string;
+  [key: string]: any;
+}

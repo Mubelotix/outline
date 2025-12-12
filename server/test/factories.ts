@@ -4,7 +4,7 @@ import isNull from "lodash/isNull";
 import { Node } from "prosemirror-model";
 import { InferCreationAttributes } from "sequelize";
 import { DeepPartial } from "utility-types";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import { randomString } from "@shared/random";
 import {
   CollectionPermission,
@@ -26,6 +26,7 @@ import {
   User,
   Event,
   Document,
+  Emoji,
   Star,
   Collection,
   Group,
@@ -282,7 +283,7 @@ export async function buildIntegration(overrides: Partial<Integration> = {}) {
     type: IntegrationType.Post,
     events: ["documents.update", "documents.publish"],
     settings: {
-      serviceTeamId: uuidv4(),
+      serviceTeamId: randomUUID(),
     },
     authenticationId: authentication.id,
     ...overrides,
@@ -559,7 +560,7 @@ export async function buildAttachment(
     overrides.documentId = document.id;
   }
 
-  const id = uuidv4();
+  const id = randomUUID();
   const acl = overrides.acl || "public-read";
   const name = fileName || faker.system.fileName();
   return Attachment.create({
@@ -571,6 +572,39 @@ export async function buildAttachment(
     name,
     createdAt: new Date("2018-01-02T00:00:00.000Z"),
     updatedAt: new Date("2018-01-02T00:00:00.000Z"),
+    ...overrides,
+  });
+}
+
+export async function buildEmoji(
+  overrides: Partial<Emoji> = {}
+): Promise<Emoji> {
+  if (!overrides.teamId) {
+    const team = await buildTeam();
+    overrides.teamId = team.id;
+  }
+
+  if (!overrides.createdById) {
+    const user = await buildUser({
+      teamId: overrides.teamId,
+    });
+    overrides.createdById = user.id;
+  }
+
+  if (!overrides.attachmentId) {
+    const attachment = await buildAttachment({
+      teamId: overrides.teamId,
+      userId: overrides.createdById,
+      contentType: "image/png",
+    });
+    overrides.attachmentId = attachment.id;
+  }
+
+  return Emoji.create({
+    name: faker.word
+      .adjective()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "_"),
     ...overrides,
   });
 }

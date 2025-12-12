@@ -24,8 +24,9 @@ import { PopoverButton } from "~/components/IconPicker/components/PopoverButton"
 import useBoolean from "~/hooks/useBoolean";
 import usePolicy from "~/hooks/usePolicy";
 import { useTranslation } from "react-i18next";
+import lazyWithRetry from "~/utils/lazyWithRetry";
 
-const IconPicker = React.lazy(() => import("~/components/IconPicker"));
+const IconPicker = lazyWithRetry(() => import("~/components/IconPicker"));
 
 type Props = {
   /** ID of the associated document */
@@ -55,7 +56,7 @@ type Props = {
 const lineHeight = "1.25";
 const fontSize = "2.25em";
 
-const DocumentTitle = React.forwardRef(function _DocumentTitle(
+const DocumentTitle = React.forwardRef(function DocumentTitle_(
   {
     documentId,
     title,
@@ -232,9 +233,9 @@ const DocumentTitle = React.forwardRef(function _DocumentTitle(
   );
 
   const dir = ref.current?.getComputedDirection();
-  const initial = title.slice(0, 1).toUpperCase();
+  const initial = title.charAt(0).toUpperCase();
   const fallbackIcon = icon ? (
-    <Icon value={icon} color={color} size={40} />
+    <Icon value={icon} initial={initial} color={color} size={40} />
   ) : null;
 
   return (

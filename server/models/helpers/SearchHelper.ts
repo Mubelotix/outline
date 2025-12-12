@@ -483,9 +483,11 @@ export default class SearchHelper {
     const order: Order = [["updatedAt", "DESC"]];
 
     if (query) {
+      // Combine text relevance with logarithmic popularity boost
+      // Popular documents get a boost, but text relevance remains primary
       attributes.push([
         Sequelize.literal(
-          `ts_rank("searchVector", to_tsquery('english', :query))`
+          `ts_rank("searchVector", to_tsquery('english', :query)) * (1 + LN(1 + COALESCE("popularityScore", 0)))`
         ),
         "searchRanking",
       ]);
@@ -572,6 +574,9 @@ export default class SearchHelper {
       ? [options.collectionId]
       : await model.collectionIds();
 
+    if (options.collectionId) {
+      where[Op.and].push({ collectionId: options.collectionId });
+    }
     if (collectionIds.length) {
       where[Op.or].push({ collectionId: collectionIds });
     }
