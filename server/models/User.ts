@@ -77,6 +77,7 @@ export enum UserFlag {
   Desktop = "desktop",
   DesktopWeb = "desktopWeb",
   MobileWeb = "mobileWeb",
+  AvatarUpdated = "avatarUpdated",
 }
 
 @Scopes(() => ({
@@ -588,10 +589,11 @@ class User extends ParanoidModel<
    *
    * @returns The email signin token
    */
-  getEmailSigninToken = () =>
+  getEmailSigninToken = (ctx: Context) =>
     JWT.sign(
       {
         id: this.id,
+        ip: ctx.request.ip,
         createdAt: new Date().toISOString(),
         type: "email-signin",
       },

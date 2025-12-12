@@ -2,6 +2,7 @@
 // oxlint-disable-next-line import/order
 import environment from "./utils/environment";
 import os from "os";
+import wellKnownServices from "nodemailer/lib/well-known/services.json";
 import {
   validate,
   IsNotEmpty,
@@ -21,6 +22,7 @@ import {
   CannotUseWithout,
   CannotUseWithAny,
   IsInCaseInsensitive,
+  IsDatabaseUrl,
 } from "@server/utils/validators";
 import Deprecated from "./models/decorators/Deprecated";
 import { getArg } from "./utils/args";
@@ -79,11 +81,7 @@ export class Environment {
    * The url of the database.
    */
   @IsOptional()
-  @IsUrl({
-    require_tld: false,
-    allow_underscores: true,
-    protocols: ["postgres", "postgresql"],
-  })
+  @IsDatabaseUrl()
   @CannotUseWithAny([
     "DATABASE_HOST",
     "DATABASE_PORT",
@@ -92,6 +90,16 @@ export class Environment {
     "DATABASE_PASSWORD",
   ])
   public DATABASE_URL = this.toOptionalString(environment.DATABASE_URL);
+
+  /**
+   * Optional database URL for read replica to distribute read queries
+   * and reduce load on primary database.
+   */
+  @IsOptional()
+  @IsDatabaseUrl()
+  public DATABASE_URL_READ_ONLY = this.toOptionalString(
+    environment.DATABASE_URL_READ_ONLY
+  );
 
   /**
    * Database host for individual component configuration.
@@ -141,11 +149,7 @@ export class Environment {
    * The url of the database pool.
    */
   @IsOptional()
-  @IsUrl({
-    require_tld: false,
-    allow_underscores: true,
-    protocols: ["postgres", "postgresql"],
-  })
+  @IsDatabaseUrl()
   public DATABASE_CONNECTION_POOL_URL = this.toOptionalString(
     environment.DATABASE_CONNECTION_POOL_URL
   );
@@ -406,37 +410,7 @@ export class Environment {
    * See https://community.nodemailer.com/2-0-0-beta/setup-smtp/well-known-services/
    */
   @CannotUseWith("SMTP_HOST")
-  @IsInCaseInsensitive([
-    "1und1",
-    "AOL",
-    "DebugMail.io",
-    "DynectEmail",
-    "FastMail",
-    "GandiMail",
-    "Gmail",
-    "Godaddy",
-    "GodaddyAsia",
-    "GodaddyEurope",
-    "hot.ee",
-    "Hotmail",
-    "iCloud",
-    "mail.ee",
-    "Mail.ru",
-    "Mailgun",
-    "Mailjet",
-    "Mandrill",
-    "Naver",
-    "Postmark",
-    "QQ",
-    "QQex",
-    "SendCloud",
-    "SendGrid",
-    "SES",
-    "Sparkpost",
-    "Yahoo",
-    "Yandex",
-    "Zoho",
-  ])
+  @IsInCaseInsensitive(Object.keys(wellKnownServices))
   public SMTP_SERVICE = this.toOptionalString(environment.SMTP_SERVICE);
 
   @Public
@@ -495,6 +469,17 @@ export class Environment {
    * encrypted connection.
    */
   public SMTP_SECURE = this.toBoolean(environment.SMTP_SECURE ?? "true");
+
+  /**
+   * If true then STARTTLS is disabled even if the server supports it.
+   * If false (the default) then STARTTLS is used if server supports it.
+   *
+   * Setting secure to false therefore does not mean that you would not use an
+   * encrypted connection.
+   */
+  public SMTP_DISABLE_STARTTLS = this.toBoolean(
+    environment.SMTP_DISABLE_STARTTLS ?? "false"
+  );
 
   /**
    * Dropbox app key for embedding Dropbox files
@@ -821,6 +806,24 @@ export class Environment {
    */
   @Public
   public APP_NAME = "Outline";
+
+  /**
+   * Gravity constant for time decay in popularity scoring. Higher values cause
+   * faster decay of older content. Default is 0.7.
+   */
+  @IsOptional()
+  @IsNumber()
+  public POPULARITY_GRAVITY =
+    this.toOptionalNumber(environment.POPULARITY_GRAVITY) ?? 0.7;
+
+  /**
+   * Number of weeks of activity to consider when calculating popularity scores.
+   * Default is 2 weeks.
+   */
+  @IsOptional()
+  @IsNumber()
+  public POPULARITY_ACTIVITY_THRESHOLD_WEEKS =
+    this.toOptionalNumber(environment.POPULARITY_ACTIVITY_THRESHOLD_WEEKS) ?? 2;
 
   /**
    * Returns true if the current installation is the cloud hosted version at

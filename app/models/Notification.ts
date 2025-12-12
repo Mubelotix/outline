@@ -122,6 +122,9 @@ class Notification extends Model {
       case NotificationEventType.MentionedInDocument:
       case NotificationEventType.MentionedInComment:
         return t("mentioned you in");
+      case NotificationEventType.GroupMentionedInComment:
+      case NotificationEventType.GroupMentionedInDocument:
+        return t("mentioned your group in");
       case NotificationEventType.CreateComment:
         return t("left a comment on");
       case NotificationEventType.ResolveComment:
@@ -174,12 +177,14 @@ class Notification extends Model {
         const collection = this.collectionId
           ? this.store.rootStore.collections.get(this.collectionId)
           : undefined;
-        return collection ? collectionPath(collection.path) : "";
+        return collection ? collectionPath(collection) : "";
       }
       case NotificationEventType.AddUserToDocument:
+      case NotificationEventType.GroupMentionedInDocument:
       case NotificationEventType.MentionedInDocument: {
         return this.document?.path;
       }
+      case NotificationEventType.GroupMentionedInComment:
       case NotificationEventType.MentionedInComment:
       case NotificationEventType.ResolveComment:
       case NotificationEventType.CreateComment:

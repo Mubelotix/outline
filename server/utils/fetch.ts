@@ -1,4 +1,4 @@
-/* oxlint-disable no-restricted-imports */
+/* oxlint-disable no-restricted-imports, react/rules-of-hooks */
 import http from "http";
 import https from "https";
 import nodeFetch, { type RequestInit, type Response } from "node-fetch";
@@ -8,6 +8,7 @@ import { useAgent as useFilteringAgent } from "request-filtering-agent";
 import env from "@server/env";
 import Logger from "@server/logging/Logger";
 import { capitalize, defaults } from "lodash";
+import { InternalError } from "@server/errors";
 
 interface UrlWithTunnel extends URL {
   tunnelMethod?: string;
@@ -56,25 +57,35 @@ export default async function fetch(
   Logger.silly("http", `Network request to ${url}`, init);
 
   const { allowPrivateIPAddress, ...rest } = init || {};
-  const response = await nodeFetch(url, {
-    ...rest,
-    headers: {
-      "User-Agent": outlineUserAgent,
-      ...rest?.headers,
-    },
-    agent: buildAgent(url, init),
-  });
 
-  if (!response.ok) {
-    Logger.silly("http", `Network request failed`, {
-      url,
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers.raw(),
+  try {
+    const response = await nodeFetch(url, {
+      ...rest,
+      headers: {
+        "User-Agent": outlineUserAgent,
+        ...rest?.headers,
+      },
+      agent: buildAgent(url, init),
     });
-  }
 
-  return response;
+    if (!response.ok) {
+      Logger.silly("http", `Network request failed`, {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers.raw(),
+      });
+    }
+
+    return response;
+  } catch (err) {
+    if (!env.isCloudHosted && err.message?.startsWith("DNS lookup")) {
+      throw InternalError(
+        `${err.message}\n\nTo allow this request, add the IP address to the ALLOWED_PRIVATE_IP_ADDRESSES environment variable.`
+      );
+    }
+    throw err;
+  }
 }
 
 /**

@@ -29,8 +29,27 @@ export default class PersistenceExtension implements Extension {
       return;
     }
 
+    // First, try to find the document without a lock to check if it has state
+    const documentWithoutLock = await Document.unscoped().findOne({
+      attributes: ["state"],
+      rejectOnEmpty: true,
+      where: {
+        id: documentId,
+      },
+    });
+
+    // If the document already has state, we can return it without needing a transaction
+    if (documentWithoutLock.state) {
+      const ydoc = new Y.Doc();
+      Logger.info("database", `Document ${documentId} is in database state`);
+      Y.applyUpdate(ydoc, documentWithoutLock.state);
+      return ydoc;
+    }
+
+    // If the document doesn't have state yet, we need to acquire a lock and create it
     return await sequelize.transaction(async (transaction) => {
-      const document = await Document.scope("withState").findOne({
+      const document = await Document.unscoped().findOne({
+        attributes: ["id", "state", "content", "text"],
         transaction,
         lock: transaction.LOCK.UPDATE,
         rejectOnEmpty: true,
@@ -38,8 +57,9 @@ export default class PersistenceExtension implements Extension {
           id: documentId,
         },
       });
-
       let ydoc;
+
+      // Double-check the state in case another process created it
       if (document.state) {
         ydoc = new Y.Doc();
         Logger.info("database", `Document ${documentId} is in database state`);
@@ -78,12 +98,12 @@ export default class PersistenceExtension implements Extension {
   async onChange({ context, documentName }: withContext<onChangePayload>) {
     const [, documentId] = documentName.split(".");
 
-    Logger.debug(
-      "multiplayer",
-      `${context.user?.name} changed ${documentName}`
-    );
-
     if (context.user) {
+      Logger.debug(
+        "multiplayer",
+        `${context.user.name} changed ${documentName}`
+      );
+
       const key = Document.getCollaboratorKey(documentId);
       await Redis.defaultClient.sadd(key, context.user.id);
     }
@@ -94,8 +114,10 @@ export default class PersistenceExtension implements Extension {
     context,
     documentName,
     clientsCount,
+    requestParameters,
   }: onStoreDocumentPayload) {
     const [, documentId] = documentName.split(".");
+    const clientVersion = requestParameters.get("editorVersion");
 
     const key = Document.getCollaboratorKey(documentId);
     const sessionCollaboratorIds = await Redis.defaultClient.smembers(key);
@@ -110,6 +132,7 @@ export default class PersistenceExtension implements Extension {
         ydoc: document,
         sessionCollaboratorIds,
         isLastConnection: clientsCount === 0,
+        clientVersion,
       });
     } catch (err) {
       Logger.error("Unable to persist document", err, {

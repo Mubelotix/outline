@@ -45,7 +45,11 @@ import {
   AfterSave,
 } from "sequelize-typescript";
 import isUUID from "validator/lib/isUUID";
-import type { CollectionSort, ProsemirrorData } from "@shared/types";
+import type {
+  CollectionSort,
+  ProsemirrorData,
+  SourceMetadata,
+} from "@shared/types";
 import { CollectionPermission, NavigationNode } from "@shared/types";
 import { UrlHelper } from "@shared/utils/UrlHelper";
 import { sortNavigationNodes } from "@shared/utils/collections";
@@ -234,10 +238,6 @@ class Collection extends ParanoidModel<
   content: ProsemirrorData | null;
 
   /** An icon (or) emoji to use as the collection icon. */
-  @Length({
-    max: 50,
-    msg: `icon must be 50 characters or less`,
-  })
   @Column
   icon: string | null;
 
@@ -305,6 +305,10 @@ class Collection extends ParanoidModel<
   @Default(null)
   @Column(DataType.BOOLEAN)
   commenting: boolean | null;
+
+  @AllowNull
+  @Column(DataType.JSONB)
+  sourceMetadata: SourceMetadata | null;
 
   // getters
 

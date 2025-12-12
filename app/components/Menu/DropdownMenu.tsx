@@ -10,13 +10,12 @@ import {
 } from "~/components/primitives/Drawer";
 import { Menu, MenuContent, MenuTrigger } from "~/components/primitives/Menu";
 import { MenuProvider } from "~/components/primitives/Menu/MenuContext";
-import { actionV2ToMenuItem } from "~/actions";
+import { actionToMenuItem } from "~/actions";
 import useActionContext from "~/hooks/useActionContext";
 import useMobile from "~/hooks/useMobile";
 import {
-  ActionContext,
-  ActionV2Variant,
-  ActionV2WithChildren,
+  ActionVariant,
+  ActionWithChildren,
   MenuItem,
   MenuItemWithChildren,
 } from "~/types";
@@ -26,9 +25,7 @@ import { useComputed } from "~/hooks/useComputed";
 
 type Props = {
   /** Root action with children representing the menu items */
-  action: ActionV2WithChildren;
-  /** Action context to use - new context will be created if not provided */
-  context?: ActionContext;
+  action: ActionWithChildren;
   /** Trigger for the menu */
   children: React.ReactNode;
   /** Alignment w.r.t trigger - defaults to start */
@@ -49,7 +46,6 @@ export const DropdownMenu = observer(
     (
       {
         action,
-        context,
         children,
         align = "start",
         ariaLabel,
@@ -64,20 +60,17 @@ export const DropdownMenu = observer(
       const isMobile = useMobile();
       const contentRef =
         React.useRef<React.ElementRef<typeof MenuContent>>(null);
-
-      const actionContext =
-        context ??
-        useActionContext({
-          isContextMenu: true,
-        });
+      const actionContext = useActionContext({
+        isMenu: true,
+      });
 
       const menuItems = useComputed(() => {
         if (!open) {
           return [];
         }
 
-        return (action.children as ActionV2Variant[]).map((childAction) =>
-          actionV2ToMenuItem(childAction, actionContext)
+        return (action.children as ActionVariant[]).map((childAction) =>
+          actionToMenuItem(childAction, actionContext)
         );
       }, [open, action.children, actionContext]);
 
